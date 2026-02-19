@@ -1,0 +1,372 @@
+/* =======================
+   DESIGN TOKENS (CSS Variables)
+   Tema LAVANDA CLARO: MDF Obras Civiles SRL
+   Primario: #2D2D7E (índigo profundo)
+   Secundario: #ABABAB (gris plata)
+======================= */
+:root {
+  --color-bg:          #E8EBF8;
+  --color-surface:     #F5F7FF;
+  --color-surface-2:   #D8DCF0;
+  --color-accent:      #2D2D7E;
+  --color-accent-dim:  rgba(45, 45, 126, 0.14);
+  --color-text:        #1A1A3E;
+  --color-text-muted:  #5A6080;
+  --color-green:       #15803d;
+  --color-blue:        #3B5FCC;
+  --color-yellow:      #b45309;
+  --color-red:         #dc2626;
+  --color-indigo:      #2D2D7E;
+  --radius-md:         10px;
+  --radius-btn:        10px;
+  --shadow-card:       0 4px 16px rgba(45, 45, 126, 0.10);
+  --transition-fast:   0.15s ease;
+  --transition-med:    0.25s ease;
+}
+
+/* =======================
+   BASE / RESET
+======================= */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+img { max-width: 100%; height: auto; }
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* =======================
+   HEADER
+======================= */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: rgba(245, 247, 255, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 2px 12px rgba(45, 45, 126, 0.10);
+  border-bottom: 2px solid rgba(45, 45, 126, 0.12);
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  min-height: 76px;
+}
+
+.logo {
+  width: 260px;
+  max-height: 110px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(45, 45, 126, 0.12));
+  transition: filter var(--transition-med);
+}
+.logo:hover {
+  filter: drop-shadow(0 4px 12px rgba(45, 45, 126, 0.28));
+}
+
+.header-main-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.main-dashboard-title {
+  font-size: 1.6rem;
+  font-weight: 900;
+  text-align: center;
+  color: var(--color-accent);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-shadow: 0 1px 6px rgba(45, 45, 126, 0.18);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.action-buttons-container {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* =======================
+   BOTONES
+======================= */
+.btn-action {
+  position: relative;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-btn);
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  color: #ffffff;
+  background: var(--color-indigo);
+  transition: filter var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.btn-action::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.30);
+  border-radius: inherit;
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn-action:hover {
+  filter: brightness(1.12);
+  box-shadow: 0 4px 14px rgba(45, 45, 126, 0.30);
+}
+
+.btn-action:active {
+  transform: scale(0.96);
+  filter: brightness(0.95);
+}
+
+.btn-action:active::after {
+  animation: ripple 0.45s ease-out;
+}
+
+@keyframes ripple {
+  from { transform: scale(0); opacity: 1; }
+  to   { transform: scale(2.8); opacity: 0; }
+}
+
+.btn-create-obra { background: #15803d; }
+.btn-info        { background: #3B5FCC; }
+.btn-user        { background: #6D28D9; }
+
+/* PERFIL + LOGOUT */
+.user-profile-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  min-width: 170px;
+}
+
+.welcome-text { font-size: 0.85rem; color: var(--color-text-muted); margin: 0; }
+.user-name    { font-size: 1.05rem; font-weight: 900; color: var(--color-accent); margin: 0; }
+
+.btn-logout-visible {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-btn);
+  border: 1px solid rgba(45, 45, 126, 0.25);
+  background: rgba(45, 45, 126, 0.07);
+  color: var(--color-text);
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+.btn-logout-visible:hover {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.45);
+  color: #dc2626;
+}
+.btn-logout-visible:active { transform: scale(0.96); }
+.logout-icon { font-size: 18px; }
+.logout-text { font-size: 13px; letter-spacing: 0.02em; }
+
+.hamburger {
+  display: none;
+  font-size: 1.6rem;
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+.hamburger:active { transform: scale(0.9); }
+
+/* =======================
+   LAYOUT: SIDEBAR + MAIN
+======================= */
+.main-content {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 76px);
+  overflow: hidden;
+}
+
+/* SIDEBAR */
+.sidebar {
+  background: rgba(245, 247, 255, 0.97);
+  border-right: 2px solid rgba(45, 45, 126, 0.10);
+  color: var(--color-accent);
+  width: 260px;
+  flex: 0 0 260px;
+  padding: 14px;
+  overflow-y: auto;
+  box-shadow: 2px 0 8px rgba(45, 45, 126, 0.07);
+}
+
+.sidebar-title {
+  font-size: 1.5rem;
+  margin: 6px 0 14px;
+  text-align: center;
+  font-weight: 900;
+  color: var(--color-accent);
+}
+
+.obra-list { list-style: none; padding: 0; margin: 0; }
+
+.obra-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-md);
+  position: relative;
+  cursor: pointer;
+  color: var(--color-text);
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.obra-list li:hover {
+  background-color: var(--color-surface-2);
+  transform: translateX(4px);
+}
+
+.obra-list li:active { transform: translateX(2px) scale(0.99); }
+
+.selected { background-color: var(--color-surface-2); }
+
+.active-indicator {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 4px;
+  background-color: var(--color-accent);
+  border-radius: 0 3px 3px 0;
+  animation: indicator-in 0.25s ease-out;
+}
+
+@keyframes indicator-in {
+  from { transform: scaleY(0); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+.panel-central {
+  flex: 1;
+  min-width: 0;
+  padding: 14px;
+  overflow-y: auto;
+}
+
+.sidebar-overlay { display: none; }
+
+/* =======================
+   UTIL: TABLAS RESPONSIVE
+======================= */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrapper table { min-width: 900px; }
+
+.table-wrapper thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* =======================
+   VIEW TRANSITIONS
+======================= */
+.view-fade-enter-active {
+  transition: opacity 0.22s ease-out, transform 0.24s ease-out;
+}
+.view-fade-leave-active {
+  transition: opacity 0.16s ease-in;
+}
+.view-fade-enter-from {
+  opacity: 0;
+  transform: translateY(7px);
+}
+.view-fade-leave-to {
+  opacity: 0;
+}
+
+/* =======================
+   SKELETON GLOBAL
+======================= */
+.sk {
+  background: linear-gradient(90deg, #D8DCF0 25%, #E8EBF8 50%, #D8DCF0 75%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+@keyframes sk-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* =======================
+   RESPONSIVE
+======================= */
+@media (max-width: 1100px) {
+  .main-dashboard-title { font-size: 1.3rem; }
+  .logo { width: 200px; }
+}
+
+@media (max-width: 900px) {
+  .hamburger { display: inline-flex; }
+
+  .header { flex-wrap: wrap; align-items: center; }
+
+  .header-main-area { order: 2; width: 100%; }
+
+  .user-profile-widget { order: 3; width: 100%; align-items: center; }
+
+  .action-buttons-container { justify-content: center; }
+
+  .sidebar {
+    position: fixed;
+    top: 76px;
+    left: 0;
+    height: calc(100vh - 76px);
+    transform: translateX(-110%);
+    transition: transform .22s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 90;
+    width: 280px;
+    flex: 0 0 280px;
+  }
+
+  .sidebar.open { transform: translateX(0); }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 76px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 85;
+    background: rgba(45, 45, 126, 0.30);
+    backdrop-filter: blur(2px);
+  }
+
+  .panel-central { padding: 12px; }
+}

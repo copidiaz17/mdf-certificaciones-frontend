@@ -1,0 +1,148 @@
+/* =======================
+    LOGIN STYLES — Tema LAVANDA CLARO
+    MDF Obras Civiles SRL
+======================= */
+.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #E8EBF8;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #1A1A3E;
+    background-image: radial-gradient(ellipse at 30% 20%, rgba(45,45,126,0.10) 0%, transparent 60%),
+                      radial-gradient(ellipse at 70% 80%, rgba(45,45,126,0.07) 0%, transparent 50%);
+}
+
+.login-container {
+    background: #F5F7FF;
+    border: 1.5px solid rgba(45,45,126,0.16);
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 8px 28px rgba(45, 45, 126, 0.14), 0 2px 8px rgba(0,0,0,0.05);
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    animation: login-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes login-in {
+    from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.login-title {
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+    color: #2D2D7E;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+
+.logo {
+    max-width: 320px;
+    height: auto;
+    margin-bottom: 20px;
+    border-radius: 6px;
+    filter: drop-shadow(0 2px 8px rgba(45,45,126,0.12));
+    transition: filter 0.25s ease, transform 0.25s ease;
+}
+.logo:hover {
+    filter: drop-shadow(0 4px 14px rgba(45,45,126,0.24));
+    transform: scale(1.02);
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.login-form input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid #C5CBE8;
+    border-radius: 8px;
+    background-color: #ECEEF8;
+    color: #1A1A3E;
+    font-size: 1em;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+}
+
+.login-form input:focus {
+    border-color: #2D2D7E;
+    box-shadow: 0 0 0 3px rgba(45,45,126,0.12);
+    background-color: #F5F7FF;
+}
+
+.login-form input::placeholder {
+    color: #8A90B0;
+}
+
+.btn-submit {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background-color: #2D2D7E;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s ease, box-shadow 0.2s;
+    margin-top: 10px;
+}
+
+.btn-submit::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.22);
+    border-radius: inherit;
+    transform: scale(0);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.btn-submit:hover {
+    background-color: #3D3D9E;
+    box-shadow: 0 4px 14px rgba(45,45,126,0.32);
+}
+
+.btn-submit:active {
+    transform: scale(0.97);
+    background-color: #222266;
+}
+
+.btn-submit:active::after {
+    animation: btn-ripple 0.4s ease-out;
+}
+
+@keyframes btn-ripple {
+    from { transform: scale(0); opacity: 1; }
+    to   { transform: scale(2.5); opacity: 0; }
+}
+
+.error {
+    color: #dc2626;
+    margin-top: 15px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    animation: shake 0.35s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%       { transform: translateX(-6px); }
+    40%       { transform: translateX(6px); }
+    60%       { transform: translateX(-4px); }
+    80%       { transform: translateX(4px); }
+}
