@@ -134,14 +134,17 @@
       </table>
     </div>
 
-    <button class="btn-volver" @click="$router.back()">
-      Volver
-    </button>
+    <div class="acciones-pdf">
+      <button class="btn-pdf" @click="exportarPDF" v-if="items.length">📄 Exportar PDF</button>
+      <button class="btn-volver" @click="$router.back()">Volver</button>
+    </div>
   </div>
 </template>
 
 <script>
 import api from "../config/axios.Config.js";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default {
   name: "CertificacionDetalleView",
@@ -213,6 +216,97 @@ export default {
       return Number(n || 0).toLocaleString("es-AR", {
         maximumFractionDigits: 2,
       });
+    },
+    exportarPDF() {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const c = this.certificado;
+
+      // Encabezado
+      doc.setFontSize(16); doc.setTextColor(4, 120, 87);
+      doc.text("CERTIFICACION DE OBRA", 14, 18);
+      doc.setFontSize(13); doc.setTextColor(30, 30, 30);
+      doc.text(c.obraNombre || "Obra", 14, 27);
+      doc.setFontSize(9); doc.setTextColor(80, 80, 80);
+      doc.text("Reparticion: " + this.etiquetaReparticion, 14, 34);
+      doc.text("N° Certificado: " + (c.numero_certificado || "-"), 14, 39);
+      doc.text("Fecha de Emision: " + (c.fecha_certificacion || "-"), 14, 44);
+      doc.text("Periodo: " + (c.periodo_desde || "-") + " al " + (c.periodo_hasta || "-"), 14, 49);
+      let startY = 56;
+      if (c.totalProyecto) {
+        doc.text("Participacion sobre obra: " + Number(c.porcentajeFinanciero || 0).toFixed(2) + "%", 14, 54);
+        startY = 61;
+      }
+
+      // Tabla de items
+      autoTable(doc, {
+        startY,
+        head: [["Item", "Descripcion", "Unidad", "Cantidad", "Avance %", "Importe"]],
+        body: this.items.map(it => [
+          it.numeroItem,
+          it.descripcion,
+          it.unidad,
+          this.formatNumber(it.cantidad_total),
+          Number(it.avance_porcentaje || 0).toFixed(2) + "%",
+          "$ " + this.formatMoney(it.importe),
+        ]),
+        headStyles: { fillColor: [4, 120, 87], textColor: [249, 250, 251], fontStyle: "bold", fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 15, halign: "center" },
+          1: { cellWidth: 75 },
+          2: { cellWidth: 18, halign: "center" },
+          3: { cellWidth: 22, halign: "right" },
+          4: { cellWidth: 18, halign: "center" },
+          5: { cellWidth: 28, halign: "right" },
+        },
+        styles: { fontSize: 8, cellPadding: 3 },
+        alternateRowStyles: { fillColor: [245, 250, 245] },
+        margin: { left: 14, right: 14 },
+      });
+
+      // Desglose financiero
+      const finY = doc.lastAutoTable.finalY + 8;
+      doc.setFontSize(10); doc.setTextColor(4, 120, 87);
+      doc.text("DESGLOSE FINANCIERO", 14, finY);
+
+      const finRows = [["Subtotal items", "$ " + this.formatMoney(c.subtotal)]];
+      if (this.esMunicipalidad) {
+        if (c.deduccion_anticipo) finRows.push(["- Devolucion de anticipo financiero", "- $ " + this.formatMoney(c.deduccion_anticipo)]);
+        if (c.fondo_reparo)       finRows.push(["- Fondo de reparo", "- $ " + this.formatMoney(c.fondo_reparo)]);
+        if (c.tasa_inspeccion)    finRows.push(["- Tasa de inspeccion", "- $ " + this.formatMoney(c.tasa_inspeccion)]);
+        if (c.sustitucion_fondo_reparo) finRows.push(["+ Sustitucion fondo de reparo (poliza)", "+ $ " + this.formatMoney(c.sustitucion_fondo_reparo)]);
+      } else if (this.esArquitectura) {
+        if (c.gastos_generales) finRows.push(["+ Gastos generales", "+ $ " + this.formatMoney(c.gastos_generales)]);
+        if (c.beneficios)       finRows.push(["+ Beneficios", "+ $ " + this.formatMoney(c.beneficios)]);
+        if (c.iva)              finRows.push(["- IVA 21%", "- $ " + this.formatMoney(c.iva)]);
+        if (c.ingresos_brutos)  finRows.push(["- Ingresos brutos 2,5%", "- $ " + this.formatMoney(c.ingresos_brutos)]);
+      }
+      finRows.push(["TOTAL NETO DEL CERTIFICADO", "$ " + this.formatMoney(c.total_neto)]);
+      const lastIdx = finRows.length - 1;
+
+      autoTable(doc, {
+        startY: finY + 4,
+        body: finRows,
+        columnStyles: { 0: { cellWidth: 140 }, 1: { cellWidth: 36, halign: "right" } },
+        bodyStyles: { fontSize: 9 },
+        didParseCell(data) {
+          if (data.row.index === lastIdx) {
+            data.cell.styles.fontStyle = "bold";
+            data.cell.styles.fillColor = [4, 120, 87];
+            data.cell.styles.textColor = [249, 250, 251];
+          }
+        },
+        margin: { left: 14, right: 14 },
+      });
+
+      // Pie de pagina
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150);
+        doc.text("Generado el " + new Date().toLocaleDateString("es-AR") + " - Pag. " + i + " de " + pageCount, 14, doc.internal.pageSize.height - 8);
+      }
+
+      const nombre = (c.obraNombre || "obra").replace(/ /g, "-");
+      doc.save("certificacion_" + nombre + "_N" + (c.numero_certificado || "0") + ".pdf");
     },
   },
   mounted() {
@@ -381,6 +475,27 @@ export default {
   color: #f9fafb;
   font-weight: 800;
 }
+
+.acciones-pdf {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-pdf {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  background: #166534;
+  color: #ecfdf5;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.btn-pdf:hover { background: #15803d; }
 
 /* Botón volver en la misma línea de verde */
 .btn-volver {

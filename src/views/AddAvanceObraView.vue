@@ -112,6 +112,7 @@
                 >
                   {{ avanceId && av.id == avanceId ? "✏️ Editando" : "Editar" }}
                 </button>
+                <button class="btn-hist-pdf" @click="exportarAvancePDF(av)">PDF</button>
               </td>
             </tr>
           </tbody>
@@ -125,6 +126,8 @@
 <script>
 import api from "../config/axios.Config.js";
 import { useToast } from "vue-toastification";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default {
   name: "AddAvanceObraView",
@@ -138,6 +141,7 @@ export default {
   data() {
     return {
       editMode: false,
+      obraNombre: "",
       avance: {
         numero_avance: "",
         fecha_avance: "",
@@ -327,6 +331,65 @@ export default {
         params: { obraId: this.obraId, avanceId },
       });
     },
+
+    async exportarAvancePDF(av) {
+      try {
+        const res = await api.get(`/obras/${this.obraId}/avances/${av.id}`);
+        const data = res.data;
+        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+        // Encabezado
+        doc.setFontSize(16); doc.setTextColor(185, 28, 28);
+        doc.text("AVANCE DE OBRA", 14, 18);
+        doc.setFontSize(13); doc.setTextColor(30, 30, 30);
+        doc.text(this.obraNombre || "Obra", 14, 27);
+        doc.setFontSize(9); doc.setTextColor(80, 80, 80);
+        doc.text("N° Avance: " + (data.numero_avance || "-"), 14, 34);
+        doc.text("Fecha: " + this.formatDate(data.fecha_avance), 14, 39);
+        if (data.periodo_desde && data.periodo_hasta) {
+          doc.text("Periodo: " + this.formatDate(data.periodo_desde) + " al " + this.formatDate(data.periodo_hasta), 14, 44);
+        }
+        doc.text("Avance ponderado: " + Number(av.avance_ponderado || 0).toFixed(2) + "%", 14, 49);
+
+        // Tabla de items
+        const items = data.items || [];
+        autoTable(doc, {
+          startY: 56,
+          head: [["Item", "Descripcion", "Unidad", "Avance %"]],
+          body: items.map(it => {
+            const pi = it.pliegoItem || {};
+            return [
+              pi.numeroItem || "-",
+              pi.descripcionItem || "-",
+              pi.unidadMedida || "-",
+              Number(it.avance_porcentaje || 0).toFixed(2) + "%",
+            ];
+          }),
+          headStyles: { fillColor: [185, 28, 28], textColor: [249, 250, 251], fontStyle: "bold", fontSize: 8 },
+          columnStyles: {
+            0: { cellWidth: 18, halign: "center" },
+            1: { cellWidth: 120 },
+            2: { cellWidth: 22, halign: "center" },
+            3: { cellWidth: 20, halign: "center" },
+          },
+          styles: { fontSize: 8, cellPadding: 3 },
+          alternateRowStyles: { fillColor: [254, 242, 242] },
+          margin: { left: 14, right: 14 },
+        });
+
+        // Pie de pagina
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150);
+          doc.text("Generado el " + new Date().toLocaleDateString("es-AR") + " - Pag. " + i + " de " + pageCount, 14, doc.internal.pageSize.height - 8);
+        }
+
+        const nombre = (this.obraNombre || "obra").replace(/ /g, "-");
+        doc.save("avance_" + nombre + "_N" + (data.numero_avance || "0") + ".pdf");
+      } catch (e) {
+        console.error("Error generando PDF de avance:", e);
+      }
+    },
   },
 
   mounted() {
@@ -337,6 +400,7 @@ export default {
       this.cargarPliego();
     }
     this.cargarHistorial();
+    api.get("/obras/" + this.obraId).then(r => { this.obraNombre = r.data?.nombre || ""; }).catch(() => {});
   },
 };
 </script>
@@ -508,6 +572,20 @@ export default {
 .btn-hist-editar:hover:not(:disabled) { filter: brightness(1.15); }
 .btn-hist-editar:active:not(:disabled) { transform: scale(0.96); }
 .btn-hist-editar:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-hist-pdf {
+  margin-left: 6px;
+  padding: 4px 10px;
+  background: #7f1d1d;
+  color: #fecaca;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.75rem;
+  transition: filter 0.15s ease;
+}
+.btn-hist-pdf:hover { filter: brightness(1.2); }
 
 /* SKELETON */
 .historial-skeleton {
