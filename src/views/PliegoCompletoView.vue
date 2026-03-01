@@ -12,6 +12,7 @@
           <th class="num-col">Cantidad</th>
           <th class="num-col">Costo Unitario</th>
           <th class="num-col">Costo Parcial</th>
+          <th class="num-col">Incidencia</th>
         </tr>
       </thead>
 
@@ -31,39 +32,42 @@
           <td class="num-col">
             {{ formatNumber(item.costoParcial) }}
           </td>
+          <td class="num-col">
+            {{ costoTotal > 0 ? ((Number(item.costoParcial) / costoTotal) * 100).toFixed(2) + '%' : '0.00%' }}
+          </td>
         </tr>
 
         <!-- FILAS DE RESUMEN -->
         <tr class="resumen-row">
-          <td colspan="5"><strong>Costo Total</strong></td>
+          <td colspan="6"><strong>Costo Total</strong></td>
           <td class="num-col">{{ formatNumber(costoTotal) }}</td>
         </tr>
         <tr class="resumen-row">
-          <td colspan="5">Gastos Generales (15%)</td>
+          <td colspan="6">Gastos Generales (15%)</td>
           <td class="num-col">{{ formatNumber(gastosGenerales) }}</td>
         </tr>
         <tr class="resumen-row">
-          <td colspan="5"><strong>Subtotal 1</strong></td>
+          <td colspan="6"><strong>Subtotal 1</strong></td>
           <td class="num-col">{{ formatNumber(subtotal1) }}</td>
         </tr>
         <tr class="resumen-row">
-          <td colspan="5">Beneficio (10%)</td>
+          <td colspan="6">Beneficio (10%)</td>
           <td class="num-col">{{ formatNumber(beneficio) }}</td>
         </tr>
         <tr class="resumen-row">
-          <td colspan="5"><strong>Subtotal 2</strong></td>
+          <td colspan="6"><strong>Subtotal 2</strong></td>
           <td class="num-col">{{ formatNumber(subtotal2) }}</td>
         </tr>
         <tr class="resumen-row">
-          <td colspan="5">IVA (21%)</td>
+          <td colspan="6">IVA (21%)</td>
           <td class="num-col">{{ formatNumber(iva) }}</td>
         </tr>
         <tr class="resumen-row">
-          <td colspan="5">Ingresos Brutos (2.5%)</td>
+          <td colspan="6">Ingresos Brutos (2.5%)</td>
           <td class="num-col">{{ formatNumber(ingBrutos) }}</td>
         </tr>
         <tr class="total-final-row">
-          <td colspan="5"><strong>PRECIO TOTAL DE OBRA</strong></td>
+          <td colspan="6"><strong>PRECIO TOTAL DE OBRA</strong></td>
           <td class="num-col">{{ formatNumber(totalObra) }}</td>
         </tr>
       </tbody>
