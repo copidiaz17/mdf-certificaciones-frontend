@@ -77,7 +77,8 @@
             <tr>
               <th>Período Desde</th>
               <th>Período Hasta</th>
-              <th>% Total Plan.</th>
+              <th>% Pond. Período</th>
+              <th>% Pond. Acum.</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -87,6 +88,9 @@
               <td>{{ formatDate(planif.fecha_desde) }}</td>
               <td>{{ formatDate(planif.fecha_hasta) }}</td>
               <td>{{ formatPercent(planif.total_porcentaje) }}</td>
+              <td :class="planif.total_porcentaje_acum >= 99.9 ? 'td-completo' : ''">
+                {{ formatPercent(planif.total_porcentaje_acum) }}
+              </td>
               <td>
                 <button
                   class="btn-hist-editar"
@@ -96,6 +100,7 @@
                 >
                   {{ planifId && planif.id == planifId ? "✏️ Editando" : "Editar" }}
                 </button>
+                <button class="btn-hist-pdf" @click="exportarPlanificacionPDF(planif)">PDF</button>
               </td>
             </tr>
           </tbody>
@@ -108,6 +113,8 @@
 
 <script>
 import api from "../config/axios.Config.js";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default {
   props: ["obraId", "planifId"],
@@ -295,6 +302,60 @@ export default {
         params: { obraId: this.obraId, planifId },
       });
     },
+
+    async exportarPlanificacionPDF(planif) {
+      try {
+        const res = await api.get(`/obras/${this.obraId}/planificaciones/${planif.id}`);
+        const data = res.data;
+
+        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+        // Header
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Planificación de Obra", 14, 18);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Período: ${this.formatDate(planif.fecha_desde)} → ${this.formatDate(planif.fecha_hasta)}`, 14, 26);
+        doc.text(`% Ponderado Período: ${this.formatPercent(planif.total_porcentaje)}`, 14, 32);
+        doc.text(`% Ponderado Acumulado: ${this.formatPercent(planif.total_porcentaje_acum)}`, 14, 38);
+
+        const rows = (data.items || []).map((it) => {
+          const pi = it.pliegoItem || {};
+          return [
+            pi.numeroItem || "",
+            pi.descripcionItem || "",
+            pi.unidadMedida || "",
+            this.mostrar(pi.cantidad || 0),
+            `${Number(it.porcentaje_planificado || 0).toFixed(2)}%`,
+          ];
+        });
+
+        autoTable(doc, {
+          startY: 44,
+          head: [["Ítem", "Descripción", "Unidad", "Cantidad", "% Planificado"]],
+          body: rows,
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [29, 78, 216], textColor: 255, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [240, 245, 255] },
+          columnStyles: {
+            0: { cellWidth: 15 },
+            1: { cellWidth: 90 },
+            2: { cellWidth: 20 },
+            3: { cellWidth: 25, halign: "right" },
+            4: { cellWidth: 30, halign: "right" },
+          },
+        });
+
+        const desde = (planif.fecha_desde || "").slice(0, 10);
+        const hasta = (planif.fecha_hasta || "").slice(0, 10);
+        doc.save(`planificacion_${desde}_${hasta}.pdf`);
+      } catch (e) {
+        console.error("Error generando PDF:", e);
+        this.error = "Error al generar el PDF";
+      }
+    },
   },
 
   mounted() {
@@ -429,6 +490,26 @@ export default {
 .btn-hist-editar:hover:not(:disabled) { filter: brightness(1.15); }
 .btn-hist-editar:active:not(:disabled) { transform: scale(0.96); }
 .btn-hist-editar:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-hist-pdf {
+  padding: 4px 12px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.8rem;
+  margin-left: 6px;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+.btn-hist-pdf:hover { filter: brightness(1.15); }
+.btn-hist-pdf:active { transform: scale(0.96); }
+
+.td-completo {
+  color: #4ade80;
+  font-weight: 700;
+}
 
 /* SKELETON */
 .historial-skeleton {
