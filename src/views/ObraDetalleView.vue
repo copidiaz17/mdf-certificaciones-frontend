@@ -200,10 +200,19 @@ export default {
 
     resumenCurva() {
       const labels = this.curvaLabels || [];
-      const planA = this.curvaPlanAcum || [];
       const certA = this.curvaCertAcum || [];
       const avA = this.curvaAvanceAcum || [];
       if (!labels.length) return [];
+
+      // Fill-forward: los períodos extra tienen null en plan; propagamos el último valor conocido
+      const planRaw = this.curvaPlanAcum || [];
+      const planA = [];
+      let lastKnownPlan = 0;
+      for (let j = 0; j < planRaw.length; j++) {
+        const v = planRaw[j];
+        if (v !== null && v !== undefined) lastKnownPlan = Number(v);
+        planA.push(lastKnownPlan);
+      }
 
       const hoy = new Date();
       const hoyStart = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime();
@@ -372,10 +381,11 @@ export default {
       const self = this;
       const certPlot = this.cutAfterLastChange(certificado || []);
       const realPlot = this.cutAfterLastChange(avance || []);
+      const financieroPlot = this.cutAfterLastChange(financiero || []);
 
       const dsPlan = {
         label: "Planificado",
-        data: (planificado || []).map((v) => Number(v ?? 0)),
+        data: (planificado || []).map((v) => v == null ? null : Number(v)),
         borderColor: "rgba(56, 189, 248, 0.25)",
         borderWidth: 16,
         tension: 0.28,
@@ -417,7 +427,7 @@ export default {
       if (this.esAdmin && financiero && financiero.length) {
         datasets.push({
           label: "Avance financiero",
-          data: (financiero || []).map((v) => Number(v ?? 0)),
+          data: financieroPlot,
           borderColor: "rgba(168, 85, 247, 0.95)",
           borderWidth: 5,
           tension: 0.25,

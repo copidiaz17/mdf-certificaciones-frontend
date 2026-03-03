@@ -16,6 +16,7 @@ import GestionarCatalogoView from "../views/GestionarCatalogoView.vue";
 import AddPlanificacionView from "../views/AddPlanificacionView.vue";
 import AddAvanceObraView from "../views/AddAvanceObraView.vue";
 import CrearUsuarioView from "../views/CrearUsuarioView.vue";
+import EditCertificacionView from "../views/EditCertificacionView.vue";
 
 
 // Componente placeholder para el inicio del Dashboard
@@ -135,6 +136,14 @@ const routes = [
         path: "obra/:obraId/avance/:avanceId/editar",
         name: "EditarAvance",
         component: AddAvanceObraView,
+        props: true,
+        meta: { requiresAuth: true, requiresModification: true },
+      },
+
+      {
+        path: "obra/:obraId/certificaciones/:certId/editar",
+        name: "EditarCertificacion",
+        component: EditCertificacionView,
         props: true,
         meta: { requiresAuth: true, requiresModification: true },
       },
