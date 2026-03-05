@@ -1,25 +1,27 @@
 <template>
-  <div class="login-page">
-    <div class="login-container">
-      <h1 class="login-title">SISTEMA DE CERTIFICACIÓN DE OBRA</h1>
+  <div class="login-page">
+    <div class="login-container">
+      <h1 class="login-title">SISTEMA DE CERTIFICACIÓN DE OBRA</h1>
 
-      <form @submit.prevent="login" class="login-form">
-        <img src="/logo-mdf.jpg" alt="Logo" class="logo" />
+      <form @submit.prevent="login" class="login-form">
+        <img src="/logo-mdf.jpg" alt="Logo" class="logo" />
 
-        <div class="input-group">
-          <input v-model="email" type="email" placeholder="Email" required />
-        </div>
+        <div class="input-group">
+          <input v-model="email" type="email" placeholder="Email" required />
+        </div>
 
-        <div class="input-group">
-          <input v-model="password" type="password" placeholder="Contraseña" required />
-        </div>
+        <div class="input-group">
+          <input v-model="password" type="password" placeholder="Contraseña" required />
+        </div>
 
-        <button type="submit" class="btn-submit">Ingresar</button>
+        <button type="submit" class="btn-submit" :disabled="loading">
+          {{ loading ? "Conectando..." : "Ingresar" }}
+        </button>
 
-        <p v-if="error" class="error">{{ error }}</p>
-      </form>
-    </div>
-  </div>
+        <p v-if="error" class="error">{{ error }}</p>
+      </form>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -58,17 +60,18 @@ export default {
         localStorage.setItem("token", token);
 
         const authStore = useAuthStore();
-        // si tu store tiene loadUserFromToken, ok:
         if (authStore.loadUserFromToken) authStore.loadUserFromToken(token);
-        // si además tenés initialize(), no hace daño:
         if (authStore.initialize) authStore.initialize();
 
-        // ✅ navegación SPA (no recarga el sitio)
         this.$router.push({ name: "Dashboard" });
       } catch (err) {
         console.error("[LOGIN] ERROR:", err);
-        console.error("[LOGIN] response:", err?.response);
-        this.error = err?.response?.data?.message || err?.message || "Error al iniciar sesión";
+        const isTimeout = err.code === "ECONNABORTED" || err?.message?.includes("timeout");
+        if (isTimeout) {
+          this.error = "El servidor tardó en responder. Intentá de nuevo en unos segundos.";
+        } else {
+          this.error = err?.response?.data?.message || "Error al iniciar sesión";
+        }
       } finally {
         this.loading = false;
       }
@@ -76,7 +79,6 @@ export default {
   },
 };
 </script>
-
 
 <style scoped>
 /* NOTA: Estos estilos son mínimos, el resto debe estar en login.css */

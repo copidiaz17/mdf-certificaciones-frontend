@@ -11,7 +11,7 @@ const API_BASE_URL = RAW
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
+  timeout: 60000,
 });
 
 api.interceptors.request.use(
