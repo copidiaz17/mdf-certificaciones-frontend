@@ -22,6 +22,14 @@
           <strong>Participación sobre obra:</strong>
           {{ certificado.porcentajeFinanciero.toFixed(2) }}%
         </p>
+        <p v-if="certificado.creado_por" class="auditoria">
+          <strong>Emitido por:</strong> {{ certificado.creado_por.nombre }}
+          <span v-if="certificado.creado_en"> · {{ formatFecha(certificado.creado_en) }}</span>
+        </p>
+        <p v-if="certificado.editado_por" class="auditoria">
+          <strong>Última edición:</strong> {{ certificado.editado_por.nombre }}
+          <span v-if="certificado.editado_en"> · {{ formatFecha(certificado.editado_en) }}</span>
+        </p>
       </div>
     </div>
 
@@ -176,6 +184,10 @@ export default {
         ingresos_brutos: 0,
         totalProyecto: 0,
         porcentajeFinanciero: 0,
+        creado_por: null,
+        editado_por: null,
+        creado_en: null,
+        editado_en: null,
       },
       items: [],
     };
@@ -221,6 +233,18 @@ export default {
     formatNumber(n) {
       return Number(n || 0).toLocaleString("es-AR", {
         maximumFractionDigits: 2,
+      });
+    },
+    formatFecha(f) {
+      if (!f) return "-";
+      const d = new Date(f);
+      if (isNaN(d)) return "-";
+      return d.toLocaleString("es-AR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     },
     irAEditar() {
@@ -312,9 +336,10 @@ export default {
 
       // Pie de pagina
       const pageCount = doc.internal.getNumberOfPages();
+      const emisor = c.creado_por ? "Emitido por: " + c.creado_por.nombre + "  |  " : "";
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150);
-        doc.text("Generado el " + new Date().toLocaleDateString("es-AR") + " - Pag. " + i + " de " + pageCount, 14, doc.internal.pageSize.height - 8);
+        doc.text(emisor + "Generado el " + new Date().toLocaleDateString("es-AR") + " - Pag. " + i + " de " + pageCount, 14, doc.internal.pageSize.height - 8);
       }
 
       const nombre = (c.obraNombre || "obra").replace(/ /g, "-");
@@ -362,6 +387,16 @@ export default {
 
 .datos-cert p {
   margin: 2px 0;
+}
+
+/* Líneas de auditoría (emitido / editado por) */
+.auditoria {
+  color: #93c5a9;
+  font-size: 0.82rem;
+  margin-top: 6px !important;
+}
+.auditoria strong {
+  color: #bbf7d0;
 }
 
 /* SUBTÍTULO ÍTEMS */
