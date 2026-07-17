@@ -75,6 +75,14 @@
 
       <!-- DESGLOSE FINANCIERO COMO PIE DE TABLA -->
       <tfoot>
+        <!-- Esta obra en particular: mostrar SOLO el costo total -->
+        <tr v-if="soloCostoTotal" class="row-total-final">
+          <td colspan="6" class="text-right">COSTO TOTAL</td>
+          <td>{{ mostrar(totales.subtotal) }}</td>
+        </tr>
+
+        <!-- Resto de obras: desglose financiero completo -->
+        <template v-else>
         <tr class="row-subtotal">
           <td colspan="6" class="text-right">Subtotal ítems</td>
           <td>{{ mostrar(totales.subtotal) }}</td>
@@ -169,13 +177,18 @@
             <td>{{ mostrar(totales.totalNeto) }}</td>
           </tr>
         </template>
+        </template>
       </tfoot>
     </table>
 
     <!-- RESUMEN FINAL DEL CERTIFICADO -->
     <div class="resumen-certificado">
       <h3>Resumen del certificado</h3>
-      <p>
+      <p v-if="soloCostoTotal">
+        <strong>Costo total del certificado:</strong>
+        {{ mostrar(totales.subtotal) }}
+      </p>
+      <p v-else>
         <strong>Total neto del certificado:</strong>
         {{ mostrar(totales.totalNeto) }}
       </p>
@@ -256,6 +269,12 @@ export default {
 
     esArquitectura() {
       return this.tipoReparticion === "arquitectura";
+    },
+
+    // ⚠️ Esta obra en particular (Jardín Municipal N°12 Arco Iris) se muestra
+    // en esta pantalla SOLO con el costo total, sin el desglose de deducciones.
+    soloCostoTotal() {
+      return Number(this.obraId) === 2;
     },
   },
 
