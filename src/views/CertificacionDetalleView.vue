@@ -1,6 +1,11 @@
 <template>
   <div class="cert-detalle-view">
-    <h2 class="titulo">Detalle de Certificación</h2>
+    <h2 class="titulo">Detalle de Certificación
+      <span v-if="certificado.anulada" class="badge-anulada">ANULADA</span>
+    </h2>
+    <p v-if="certificado.anulada && certificado.anulada_por" class="aviso-anulada">
+      Anulada por {{ certificado.anulada_por.nombre }} — no se computa en el acumulado.
+    </p>
 
     <!-- ENCABEZADO -->
     <div class="encabezado">
@@ -144,7 +149,9 @@
 
     <div class="acciones-pdf">
       <button class="btn-pdf" @click="exportarPDF" v-if="items.length">📄 Exportar PDF</button>
-      <button class="btn-editar" @click="irAEditar">✏️ Editar</button>
+      <button v-if="!certificado.anulada" class="btn-editar" @click="irAEditar">✏️ Editar</button>
+      <button v-if="!certificado.anulada" class="btn-anular" @click="anular">🚫 Anular</button>
+      <button v-else class="btn-reactivar" @click="reactivar">↩️ Reactivar</button>
       <button class="btn-volver" @click="$router.back()">Volver</button>
     </div>
   </div>
@@ -188,6 +195,8 @@ export default {
         editado_por: null,
         creado_en: null,
         editado_en: null,
+        anulada: false,
+        anulada_por: null,
       },
       items: [],
     };
@@ -252,6 +261,24 @@ export default {
         name: "EditarCertificacion",
         params: { obraId: this.obraId || this.certificado.obraId, certId: this.certId },
       });
+    },
+    async anular() {
+      if (!confirm("¿Anular esta certificación? Queda fuera del acumulado y del 100%. No se borra (se puede reactivar).")) return;
+      try {
+        const res = await api.post(`/certificaciones/${this.certId}/anular`);
+        if (res.data.ok) await this.cargarDetalle();
+      } catch (e) {
+        alert(e?.response?.data?.error || "No se pudo anular la certificación.");
+      }
+    },
+    async reactivar() {
+      if (!confirm("¿Reactivar esta certificación? Vuelve a computar en el acumulado.")) return;
+      try {
+        const res = await api.post(`/certificaciones/${this.certId}/reactivar`);
+        if (res.data.ok) await this.cargarDetalle();
+      } catch (e) {
+        alert(e?.response?.data?.error || "No se pudo reactivar la certificación.");
+      }
     },
     exportarPDF() {
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -559,6 +586,52 @@ export default {
   letter-spacing: 0.06em;
 }
 .btn-editar:hover { background: #1d4ed8; }
+
+.badge-anulada {
+  display: inline-block;
+  margin-left: 12px;
+  background: #7f1d1d;
+  color: #fecaca;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 4px 12px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+.aviso-anulada {
+  color: #fca5a5;
+  font-size: 0.85rem;
+  margin: -6px 0 14px;
+}
+.btn-anular {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  background: #b91c1c;
+  color: #fee2e2;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.btn-anular:hover { background: #991b1b; }
+.btn-reactivar {
+  margin-top: 16px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  background: #ca8a04;
+  color: #fef9c3;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.btn-reactivar:hover { background: #a16207; }
 
 .btn-volver {
   margin-top: 16px;

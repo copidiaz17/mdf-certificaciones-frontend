@@ -126,8 +126,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="cert in certsHistorial" :key="cert.id">
-                <td>{{ cert.numero_certificado }}</td>
+              <tr v-for="cert in certsHistorial" :key="cert.id" :class="{ 'row-anulada': cert.anulada }">
+                <td>{{ cert.numero_certificado }}<span v-if="cert.anulada" class="cert-anulada">ANULADA</span></td>
                 <td>{{ formatPeriodo(cert) }}</td>
                 <td>{{ formatDate(cert.fecha_certificacion) }}</td>
                 <td>{{ formatPercent(cert.avance_mensual) }}</td>
@@ -733,6 +733,19 @@ export default {
   font-size: 0.9rem;
 }
 
+.row-anulada { opacity: 0.55; }
+.cert-anulada {
+  display: inline-block;
+  margin-left: 8px;
+  background: #7f1d1d;
+  color: #fecaca;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
 .tabla-certificaciones th,
 .tabla-certificaciones td {
   border: 1px solid #4b5563;
