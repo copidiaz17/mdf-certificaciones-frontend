@@ -77,59 +77,59 @@
       <tfoot>
         <!-- Esta obra en particular: mostrar SOLO el costo total -->
         <tr v-if="soloCostoTotal" class="row-total-final">
-          <td colspan="6" class="text-right">COSTO TOTAL</td>
+          <td colspan="7" class="text-right">COSTO TOTAL</td>
           <td>{{ mostrar(totales.subtotal) }}</td>
         </tr>
 
         <!-- Resto de obras: desglose financiero completo -->
         <template v-else>
         <tr class="row-subtotal">
-          <td colspan="6" class="text-right">Subtotal ítems</td>
+          <td colspan="7" class="text-right">Subtotal ítems</td>
           <td>{{ mostrar(totales.subtotal) }}</td>
         </tr>
 
         <!-- MUNICIPALIDAD (municipalidad_sgo) -->
         <template v-if="esMunicipalidad">
           <tr>
-            <td colspan="6" class="text-right">
+            <td colspan="7" class="text-right">
               Devolución anticipo financiero (40% del subtotal)
             </td>
             <td>- {{ mostrar(totales.deduccionAnticipo) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">Subtotal 1</td>
+            <td colspan="7" class="text-right">Subtotal 1</td>
             <td>{{ mostrar(totales.subtotal1) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">
+            <td colspan="7" class="text-right">
               Fondo de reparo (5% del subtotal)
             </td>
             <td>- {{ mostrar(totales.fondoReparo) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">
+            <td colspan="7" class="text-right">
               Tasa de inspección (3% del subtotal)
             </td>
             <td>- {{ mostrar(totales.tasaInspeccion) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">Subtotal 2</td>
+            <td colspan="7" class="text-right">Subtotal 2</td>
             <td>{{ mostrar(totales.subtotal2) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">
+            <td colspan="7" class="text-right">
               Sustitución fondo de reparo mediante póliza
             </td>
             <td>+ {{ mostrar(totales.sustitucionFondoReparo) }}</td>
           </tr>
 
           <tr class="row-total-final">
-            <td colspan="6" class="text-right">TOTAL NETO CERTIFICADO</td>
+            <td colspan="7" class="text-right">TOTAL NETO CERTIFICADO</td>
             <td>{{ mostrar(totales.totalNeto) }}</td>
           </tr>
         </template>
@@ -137,43 +137,43 @@
         <!-- ARQUITECTURA (direccion_arquitectura) -->
         <template v-else-if="esArquitectura">
           <tr>
-            <td colspan="6" class="text-right">
+            <td colspan="7" class="text-right">
               Gastos generales (15% del subtotal)
             </td>
             <td>+ {{ mostrar(totales.gastosGenerales) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">Subtotal 1</td>
+            <td colspan="7" class="text-right">Subtotal 1</td>
             <td>{{ mostrar(totales.subtotal1) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">
+            <td colspan="7" class="text-right">
               Beneficios (10% del subtotal 1)
             </td>
             <td>+ {{ mostrar(totales.beneficios) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">Subtotal 2</td>
+            <td colspan="7" class="text-right">Subtotal 2</td>
             <td>{{ mostrar(totales.subtotal2) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">IVA 21% (sobre subtotal 2)</td>
+            <td colspan="7" class="text-right">IVA 21% (sobre subtotal 2)</td>
             <td>- {{ mostrar(totales.iva) }}</td>
           </tr>
 
           <tr>
-            <td colspan="6" class="text-right">
+            <td colspan="7" class="text-right">
               Ingresos brutos 2,5% (sobre subtotal 2)
             </td>
             <td>- {{ mostrar(totales.ingresosBrutos) }}</td>
           </tr>
 
           <tr class="row-total-final">
-            <td colspan="6" class="text-right">TOTAL NETO CERTIFICADO</td>
+            <td colspan="7" class="text-right">TOTAL NETO CERTIFICADO</td>
             <td>{{ mostrar(totales.totalNeto) }}</td>
           </tr>
         </template>
@@ -540,14 +540,18 @@ export default {
   margin-bottom: 18px;
 }
 
+/* ⚠️ FONDO Y TEXTO EXPLÍCITOS, LOS DOS.
+   assets/base.css hace que el color de texto de la app dependa del tema del
+   sistema operativo (prefers-color-scheme). Esta vista usa fondos oscuros
+   fijos, así que si solo se define el fondo, en tema claro queda texto negro
+   sobre negro, y si solo se define el texto, queda gris claro sobre blanco.
+   Definiendo los dos, la tabla se ve igual con cualquier tema. */
 .data-table th,
 .data-table td {
   border: 1px solid #666;
   padding: 6px;
   text-align: center;
-  /* ⚠️ Faltaba el color de texto. Sin esto las celdas heredaban el negro por
-     defecto, y sobre los fondos oscuros del pie de tabla el desglose quedaba
-     invisible: estaba renderizado pero no se leía. */
+  background: #1f2937;
   color: #e5e7eb;
 }
 
