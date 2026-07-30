@@ -42,6 +42,8 @@
           <td colspan="6"><strong>Costo Total</strong></td>
           <td class="num-col">{{ formatNumber(costoTotal) }}</td>
         </tr>
+        <!-- El desglose se oculta en las obras marcadas como "solo costo total" -->
+        <template v-if="!soloCostoTotal">
         <tr class="resumen-row">
           <td colspan="6">Gastos Generales (15%)</td>
           <td class="num-col">{{ formatNumber(gastosGenerales) }}</td>
@@ -70,6 +72,7 @@
           <td colspan="6"><strong>PRECIO TOTAL DE OBRA</strong></td>
           <td class="num-col">{{ formatNumber(totalObra) }}</td>
         </tr>
+        </template>
       </tbody>
     </table>
 
@@ -101,6 +104,13 @@ export default {
   },
 
   computed: {
+    // ⚠️ Obras que en el pliego muestran SOLO el costo total, sin el desglose.
+    // Tiene que coincidir con la lista de CargarPliegoView.
+    // TODO: pasarlo a un campo de la obra en vez de una lista de IDs.
+    soloCostoTotal() {
+      const OBRAS_SOLO_TOTAL = [2]; // 2 = Jardín Municipal N°12 Arco Iris
+      return OBRAS_SOLO_TOTAL.includes(Number(this.obraId));
+    },
     costoTotal() {
       return this.items.reduce((sum, i) => sum + Number(i.costoParcial), 0);
     },

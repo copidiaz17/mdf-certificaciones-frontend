@@ -271,10 +271,14 @@ export default {
       return this.tipoReparticion === "arquitectura";
     },
 
-    // ⚠️ Esta obra en particular (Jardín Municipal N°12 Arco Iris) se muestra
-    // en esta pantalla SOLO con el costo total, sin el desglose de deducciones.
+    // ⚠️ ACÁ SIEMPRE VA EL DESGLOSE COMPLETO.
+    // Antes esto devolvía `Number(this.obraId) === 2` y ocultaba las
+    // deducciones en el Jardín Municipal. Estaba en la pantalla equivocada:
+    // lo de "solo costo total" se pidió para la carga de ÍTEMS de la obra
+    // (CargarPliegoView / PliegoCompletoView), no para la del certificado.
+    // Un certificado sin desglose no sirve: es lo que se presenta a cobrar.
     soloCostoTotal() {
-      return Number(this.obraId) === 2;
+      return false;
     },
   },
 

@@ -121,6 +121,9 @@
                         <td v-if="authStore.canModify"></td>
                     </tr>
 
+                    <!-- El desglose se oculta en las obras marcadas como
+                         "solo costo total" (ver el computed soloCostoTotal) -->
+                    <template v-if="!soloCostoTotal">
                     <tr class="resumen-row">
                         <td colspan="5">Gastos Generales (10%)</td>
                         <td>${{ formatNumber(gastosGenerales) }}</td>
@@ -162,6 +165,7 @@
                         <td><strong>${{ formatNumber(precioTotalObra) }}</strong></td>
                         <td v-if="authStore.canModify"></td>
                     </tr>
+                    </template>
 
                 </tbody>
             </table>
@@ -226,6 +230,17 @@ export default {
     },
 
     computed: {
+        // ⚠️ Obras que en la carga de ÍTEMS muestran SOLO el costo total, sin el
+        // desglose de gastos generales, beneficio, IVA e ingresos brutos.
+        // El certificado, en cambio, siempre lleva su desglose completo.
+        //
+        // TODO: esto debería ser un campo de la obra (ej. `mostrar_desglose`)
+        // en lugar de una lista de IDs acá. Mientras siga siendo una lista,
+        // agregar obras nuevas obliga a tocar código.
+        soloCostoTotal() {
+            const OBRAS_SOLO_TOTAL = [2]; // 2 = Jardín Municipal N°12 Arco Iris
+            return OBRAS_SOLO_TOTAL.includes(Number(this.obraId));
+        },
         costoTotal() {
             return this.itemsPliego.reduce((sum, item) => sum + Number(item.costoParcial || 0), 0);
         },
