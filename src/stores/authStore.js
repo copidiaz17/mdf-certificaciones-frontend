@@ -43,6 +43,19 @@ export const useAuthStore = defineStore("auth", {
       return rol === "admin" || rol === "administrador" || rol === "operator" || rol === "usuario";
     },
 
+    // 🔑 Es administrador (acepta los dos nombres que quedaron en la base)
+    //
+    // ⚠️ POR QUÉ ESTÁ ACÁ: en la base los roles quedaron mezclados — hay
+    // usuarios con "admin" y otros con "administrador". El backend ya los
+    // normaliza (ver middlewares/authorization.js), pero la vista comparaba
+    // contra la palabra exacta "administrador" y dejaba afuera a los "admin",
+    // incluido admin@mdf.com. Centralizado para que no vuelva a pasar.
+    esAdmin: (state) => {
+      if (!state.role) return false;
+      const rol = state.role.toLowerCase().trim();
+      return rol === "admin" || rol === "administrador";
+    },
+
     // 🔑 Súper administrador (id = 1)
     isSuperAdmin: (state) => {
       return !!state.user && Number(state.user.id) === 1;

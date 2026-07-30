@@ -190,12 +190,13 @@ export default {
   },
 
   computed: {
+    // Usa el getter del store, que acepta "admin" y "administrador".
+    // Antes comparaba acá contra "administrador" exacto y dejaba afuera a
+    // admin@mdf.com, que tiene el rol guardado como "admin". Eso bloqueaba
+    // el detalle de la certificación Y la curva de avance financiero, que
+    // también dependía de esAdmin.
     esAdmin() {
-      return (
-        this.authStore.user &&
-        this.authStore.user.rol &&
-        this.authStore.user.rol.toLowerCase().trim() === "administrador"
-      );
+      return this.authStore.esAdmin;
     },
 
     resumenCurva() {
