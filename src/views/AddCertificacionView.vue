@@ -541,6 +541,10 @@ export default {
   border: 1px solid #666;
   padding: 6px;
   text-align: center;
+  /* ⚠️ Faltaba el color de texto. Sin esto las celdas heredaban el negro por
+     defecto, y sobre los fondos oscuros del pie de tabla el desglose quedaba
+     invisible: estaba renderizado pero no se leía. */
+  color: #e5e7eb;
 }
 
 .data-table th {
@@ -561,15 +565,29 @@ export default {
   text-align: right;
 }
 
-.row-subtotal td {
+/* Todo el pie de tabla —el desglose financiero— con fondo propio y texto claro */
+.data-table tfoot td {
+  background: #1f2937;
+  color: #e5e7eb;
+}
+
+/* Los descuentos, en rojo suave, para distinguirlos de las sumas */
+.data-table tfoot tr:not(.row-subtotal):not(.row-total-final):not(.row-subtotal-parcial) td:last-child {
+  color: #fca5a5;
+}
+
+.row-subtotal td,
+.row-subtotal-parcial td {
   font-weight: 600;
   background: #111827;
+  color: #f9fafb;
 }
 
 .row-total-final td {
   font-weight: 700;
   background: #047857;
   color: #fff;
+  font-size: 1.05rem;
 }
 
 /* -------- RESUMEN -------- */
@@ -577,15 +595,43 @@ export default {
 .resumen-certificado {
   margin-top: 10px;
   margin-bottom: 20px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-radius: 8px;
-  background: #020617;
+  /* Antes: #020617 sin color de texto → letras negras sobre fondo casi negro */
+  background: #111827;
   border: 1px solid #4b5563;
+  color: #e5e7eb;
 }
 
 .resumen-certificado h3 {
   margin-top: 0;
+  margin-bottom: 10px;
+  color: #f9fafb;
+}
+
+.resumen-certificado p {
+  margin: 6px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14.5px;
+}
+
+.resumen-certificado strong {
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+/* El total final, destacado */
+.resumen-certificado p:first-of-type {
+  font-size: 17px;
+  padding-bottom: 8px;
   margin-bottom: 8px;
+  border-bottom: 1px solid #374151;
+}
+
+.resumen-certificado p:first-of-type strong {
+  color: #6ee7b7;
 }
 
 /* -------- BOTÓN -------- */
