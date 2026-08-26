@@ -22,7 +22,7 @@
       </button>
       <button v-if="authStore.canModify" @click="goToProyeccionObra"
         class="btn-primary btn-success btn-lg action-btn">
-        Proyección de Obra
+        📅 Planificación / Replanteo
       </button>
     </div>
 
@@ -182,6 +182,7 @@ export default {
       certsHistorial: [],
       financiero: [],
       financieroMontos: [],
+      planificacionesCurvas: [],   // series de planificación: original y replanteo
       curvaLabels: [],
       curvaPlanAcum: [],
       curvaCertAcum: [],
@@ -285,6 +286,7 @@ export default {
       this.certNumerosPorPeriodo = [];
       this.financiero = [];
       this.financieroMontos = [];
+      this.planificacionesCurvas = [];
 
       if (this.curvaChartInstance) {
         this.curvaChartInstance.destroy();
@@ -321,7 +323,8 @@ export default {
             this.curvaPlanAcum,
             this.curvaCertAcum,
             this.curvaAvanceAcum,
-            this.financiero
+            this.financiero,
+            this.planificacionesCurvas
           );
         }
       }
@@ -341,13 +344,14 @@ export default {
       const obraId = this.route.params.obraId;
       const res = await api.get(`/obras/${obraId}/curva-avance`);
 
-      const { labels, planificado, certificado, avance, financiero, financieroMontos, certNumerosPorPeriodo } = res.data;
+      const { labels, planificado, certificado, avance, financiero, financieroMontos, certNumerosPorPeriodo, planificacionesCurvas } = res.data;
 
       if (!labels || labels.length === 0) return;
 
       this.certNumerosPorPeriodo = certNumerosPorPeriodo || [];
       this.financiero = financiero || [];
       this.financieroMontos = financieroMontos || [];
+      this.planificacionesCurvas = planificacionesCurvas || [];
       this.curvaLabels = labels || [];
       this.curvaPlanAcum = planificado || [];
       this.curvaCertAcum = certificado || [];
@@ -375,7 +379,7 @@ export default {
       return s.map((v, i) => (i <= lastIdx ? v : null));
     },
 
-    renderCurva(labels, planificado, certificado, avance, financiero) {
+    renderCurva(labels, planificado, certificado, avance, financiero, planificacionesCurvas) {
       if (!this.$refs.curvaChart) return;
       if (this.curvaChartInstance) this.curvaChartInstance.destroy();
 
@@ -384,16 +388,57 @@ export default {
       const realPlot = this.cutAfterLastChange(avance || []);
       const financieroPlot = this.cutAfterLastChange(financiero || []);
 
-      const dsPlan = {
-        label: "Planificado",
-        data: (planificado || []).map((v) => v == null ? null : Number(v)),
-        borderColor: "rgba(56, 189, 248, 0.25)",
-        borderWidth: 16,
-        tension: 0.28,
-        pointRadius: 0,
-        fill: false,
-        order: 10,
-      };
+      // Curvas de planificación: una por serie. Cuando hay replanteo se
+      // dibujan dos — la original atenuada y punteada, como testigo de lo que
+      // se había prometido, y el replanteo vigente en naranja por encima.
+      // Van detrás de las curvas de ejecución (order alto) y más gruesas.
+      const planDatasets = [];
+      const hayReplanteo = planificacionesCurvas && planificacionesCurvas.some((c) => c.tipo === "replanteo");
+
+      if (planificacionesCurvas && planificacionesCurvas.length > 0) {
+        planificacionesCurvas.forEach((curva) => {
+          const esReplanteo = curva.tipo === "replanteo";
+          const esVigente = curva.esVigente;
+          let borderColor, borderWidth, borderDash, label;
+
+          if (!esReplanteo) {
+            label = hayReplanteo ? "Planificado (Original)" : "Planificado";
+            borderColor = hayReplanteo ? "rgba(56, 189, 248, 0.20)" : "rgba(56, 189, 248, 0.25)";
+            borderWidth = 16;
+            borderDash = hayReplanteo ? [8, 6] : undefined;
+          } else {
+            const sufijo = curva.motivo === "adicional_item" ? " c/adicionales" : "";
+            label = esVigente ? `Replanteo${sufijo} (vigente)` : `Replanteo${sufijo}`;
+            borderColor = esVigente ? "rgba(251, 146, 60, 0.90)" : "rgba(251, 146, 60, 0.25)";
+            borderWidth = esVigente ? 12 : 6;
+            borderDash = esVigente ? undefined : [8, 6];
+          }
+
+          planDatasets.push({
+            label,
+            data: (curva.datos || []).map((v) => (v == null ? null : Number(v))),
+            borderColor,
+            borderWidth,
+            borderDash,
+            tension: 0.28,
+            pointRadius: 0,
+            fill: false,
+            order: 10,
+          });
+        });
+      } else {
+        // Compatibilidad: si el backend todavía no manda las series.
+        planDatasets.push({
+          label: "Planificado",
+          data: (planificado || []).map((v) => (v == null ? null : Number(v))),
+          borderColor: "rgba(56, 189, 248, 0.25)",
+          borderWidth: 16,
+          tension: 0.28,
+          pointRadius: 0,
+          fill: false,
+          order: 10,
+        });
+      }
 
       const dsCert = {
         label: "Certificado",
@@ -423,7 +468,7 @@ export default {
         order: 1,
       };
 
-      const datasets = [dsPlan, dsCert, dsReal];
+      const datasets = [...planDatasets, dsCert, dsReal];
 
       if (this.esAdmin && financiero && financiero.length) {
         datasets.push({
