@@ -35,6 +35,21 @@
       </div>
     </div>
 
+    <!-- Avisos de excedente: se ven MIENTRAS se carga, no después de guardar -->
+    <div v-if="avisosExcedente.length" class="panel-excedente">
+      <div class="panel-excedente-titulo">
+        ⚠️ Hay ítems por encima de lo que dice el pliego
+      </div>
+      <ul>
+        <li v-for="(a, i) in avisosExcedente" :key="i">{{ a.mensaje }}</li>
+      </ul>
+      <p class="panel-excedente-pie">
+        Se puede guardar igual: el avance registra lo que se ejecutó de verdad.
+        El excedente queda anotado y se negocia después en el replanteo o en un
+        adicional — <strong>la certificación sí sigue topada a lo del pliego</strong>.
+      </p>
+    </div>
+
     <!-- TABLA -->
     <table class="data-table">
       <thead>
@@ -42,27 +57,56 @@
           <th>Ítem</th>
           <th>Descripción</th>
           <th>Unidad</th>
-          <th>Cantidad</th>
+          <th>Pliego</th>
           <th>% Disp.</th>
           <th>Avance (%)</th>
+          <th>Cantidad ejecutada</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in avanceItems" :key="item.pliego_item_id">
+        <tr v-for="item in avanceItems" :key="item.pliego_item_id"
+            :class="{ 'fila-excedida': item.excedido || excedeAhora(item) }">
           <td>{{ item.numeroItem }}</td>
-          <td>{{ item.descripcion }}</td>
-          <td>{{ item.unidad }}</td>
-          <td>{{ mostrar(item.cantidad) }}</td>
-          <td>{{ item.porcentajeDisponible }}%</td>
           <td>
+            {{ item.descripcion }}
+            <span v-if="item.origen === 'excedente'" class="etiqueta-exc">excedente</span>
+          </td>
+          <td>{{ item.unidad }}</td>
+          <td>{{ mostrar(item.cantidad) }} {{ item.unidad }}</td>
+          <td>
+            {{ item.porcentajeDisponible }}%
+            <span v-if="item.excedido" class="sub-aviso">ya excedido ({{ item.acumulado }}%)</span>
+            <span v-else-if="item.completo" class="sub-aviso">completo</span>
+          </td>
+          <td>
+            <!-- Sin `max`: el avance de obra puede superar el pliego. El tope
+                 sigue estando en la certificación, que es lo que se factura. -->
             <input
               type="number"
               min="0"
-              :max="item.porcentajeDisponible"
               step="0.01"
               v-model.number="item.avance_porcentaje"
+              @input="desdePorcentaje(item)"
               class="input-porcentaje"
             />
+          </td>
+          <td>
+            <!-- El mismo dato visto en la unidad en que se mide en obra. Nadie
+                 sale a medir "porcentaje de excavación". -->
+            <input
+              type="number"
+              min="0"
+              step="0.00001"
+              v-model.number="item.cantidad_ejecutada"
+              @input="desdeCantidad(item)"
+              class="input-porcentaje"
+            />
+          </td>
+          <td class="celda-exc">
+            <span v-if="excedenteDe(item) > 0" class="excedente-chip">
+              +{{ mostrar(excedenteDe(item)) }} {{ item.unidad }}
+            </span>
           </td>
         </tr>
       </tbody>
@@ -149,6 +193,7 @@ export default {
         periodo_hasta: "",
       },
       avanceItems: [],
+      avisosExcedente: [],
       historial: [],
       cargandoHistorial: false,
     };
@@ -163,6 +208,9 @@ export default {
       const total = this.totalProyecto;
       if (!total) return 0;
 
+      // Acá el tope al 100% SÍ corresponde y se queda: un ítem al 400% no
+      // significa que la obra avanzó cuatro veces. El excedente se ejecutó,
+      // pero no adelanta la obra ni vale plata todavía.
       const ejecutado = this.avanceItems.reduce((acc, i) => {
         const costo = Number(i.costoParcial || 0);
         const porc = Math.max(0, Math.min(100, Number(i.avance_porcentaje || 0)));
@@ -186,6 +234,63 @@ export default {
   },
 
   methods: {
+    // El porcentaje y la cantidad son el MISMO dato visto de dos maneras, y el
+    // pliego tiene la equivalencia. Se puede escribir en cualquiera de los dos
+    // campos y el otro se acomoda: el capataz que midió 200 m3 escribe 200, y
+    // el que piensa en porcentaje escribe 400. Nadie hace la división a mano.
+    desdePorcentaje(item) {
+      const cant = Number(item.cantidad || 0);
+      if (cant > 0) {
+        item.cantidad_ejecutada = Number(((cant * Number(item.avance_porcentaje || 0)) / 100).toFixed(5));
+      }
+      this.revisarExcedentes();
+    },
+    desdeCantidad(item) {
+      const cant = Number(item.cantidad || 0);
+      if (cant > 0) {
+        item.avance_porcentaje = Number(((Number(item.cantidad_ejecutada || 0) / cant) * 100).toFixed(2));
+      }
+      this.revisarExcedentes();
+    },
+
+    // Lo que este avance suma por encima del pliego, contando lo que ya había.
+    excedenteDe(item) {
+      const cant = Number(item.cantidad || 0);
+      if (!cant) return 0;
+      const yaCargado = (Number(item.acumulado || 0) / 100) * cant;
+      const ahora = Number(item.cantidad_ejecutada || 0);
+      return Math.max(0, Number((yaCargado + ahora - cant).toFixed(5)));
+    },
+    excedeAhora(item) {
+      return this.excedenteDe(item) > 0;
+    },
+
+    // Le pregunta al servidor qué avisos saldrían, sin guardar nada.
+    async revisarExcedentes() {
+      const items = this.avanceItems
+        .filter((i) => Number(i.avance_porcentaje || 0) > 0)
+        .map((i) => ({
+          pliego_item_id: i.pliego_item_id,
+          cantidad_ejecutada: i.cantidad_ejecutada,
+          avance_porcentaje: i.avance_porcentaje,
+        }));
+      if (!items.length) {
+        this.avisosExcedente = [];
+        return;
+      }
+      try {
+        const res = await api.post(`/avanceObra/${this.obraId}/previsualizar`, {
+          items,
+          excluir_avance_id: this.editMode ? this.avanceId : null,
+        });
+        this.avisosExcedente = res.data?.avisos || [];
+      } catch {
+        // Si la previsualización falla no se bloquea la carga: el servidor
+        // vuelve a avisar al guardar.
+        this.avisosExcedente = [];
+      }
+    },
+
     mostrar(n) {
       return Number(n || 0).toLocaleString("es-AR", {
         minimumFractionDigits: 2,
@@ -231,7 +336,12 @@ export default {
         cantidad: it.cantidad,
         costoParcial: Number(it.costoParcial || 0),
         porcentajeDisponible: Number(it.porcentajeDisponible || 100),
+        acumulado: Number(it.acumulado || 0),
+        completo: !!it.completo,
+        excedido: !!it.excedido,
+        origen: it.origen,
         avance_porcentaje: 0,
+        cantidad_ejecutada: 0,
       }));
     },
 
@@ -258,7 +368,12 @@ export default {
           cantidad: it.cantidad,
           costoParcial: Number(it.costoParcial || 0),
           porcentajeDisponible: Number(it.porcentajeDisponible || 0),
+          acumulado: Number(it.acumulado || 0),
+          completo: !!it.completo,
+          excedido: !!it.excedido,
+          origen: it.origen,
           avance_porcentaje: 0,
+          cantidad_ejecutada: 0,
         };
       });
 
@@ -298,9 +413,13 @@ export default {
 
       const payload = {
         ...this.avance,
+        // SIN Math.min(100): el avance de obra registra lo que se ejecutó de
+        // verdad. Truncar acá era perder el excedente antes de que saliera del
+        // navegador.
         items: this.avanceItems.map((i) => ({
           pliego_item_id: i.pliego_item_id,
-          avance_porcentaje: Math.max(0, Math.min(100, Number(i.avance_porcentaje || 0))),
+          avance_porcentaje: Math.max(0, Number(i.avance_porcentaje || 0)),
+          cantidad_ejecutada: i.cantidad_ejecutada,
         })),
       };
 
@@ -469,6 +588,34 @@ export default {
   position: sticky;
   top: 0;
   z-index: 2;
+}
+
+/* ── Excedentes ─────────────────────────────────────────────────────── */
+.panel-excedente {
+  background: rgba(180, 83, 9, 0.09);
+  border-left: 4px solid #b45309;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  color: #7c3d06;
+  font-size: 0.9rem;
+}
+.panel-excedente-titulo { font-weight: 700; margin-bottom: 6px; }
+.panel-excedente ul { margin: 0; padding-left: 20px; line-height: 1.7; }
+.panel-excedente-pie { margin: 10px 0 0; font-size: 0.84rem; line-height: 1.5; }
+
+tr.fila-excedida td { background: rgba(180, 83, 9, 0.06); }
+.sub-aviso { display: block; font-size: 0.72rem; color: #b45309; }
+.etiqueta-exc {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em;
+  background: rgba(90, 96, 128, 0.16); color: #5a6080;
+  padding: 1px 6px; border-radius: 8px; margin-left: 6px;
+}
+.celda-exc { white-space: nowrap; }
+.excedente-chip {
+  font-size: 0.78rem; font-weight: 700;
+  background: rgba(180, 83, 9, 0.14); color: #b45309;
+  padding: 2px 8px; border-radius: 10px;
 }
 
 .input-porcentaje {

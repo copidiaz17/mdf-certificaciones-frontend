@@ -116,6 +116,16 @@ const routes = [
         meta: { requiresAuth: true, requiresModification: true },
       },
 
+      // Lo ejecutado por encima del pliego. Solo lectura para todos: convertir
+      // en ítem lo controla la propia pantalla según el rol.
+      {
+        path: "obra/:obraId/excedentes",
+        name: "ExcedentesObra",
+        component: () => import("../views/ExcedentesObraView.vue"),
+        props: true,
+        meta: { requiresAuth: true },
+      },
+
      {
   path: "obra/:obraId/certificaciones/:certId",
   name: "DetalleCertificacion",
