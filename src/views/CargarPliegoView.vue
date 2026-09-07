@@ -49,19 +49,19 @@
 
                     <div class="col-md-4">
                         <label class="form-label">Costo Unitario ($):</label>
-                        <input 
-                            type="text" 
-                            :value="costoUnitarioFocused 
-                                ? String(form.costoUnitario).replace('.', ',') 
+                        <input
+                            type="text"
+                            :value="costoUnitarioFocused
+                                ? String(form.costoUnitario).replace('.', ',')
                                 : formatNumber(form.costoUnitario)"
                             @input="form.costoUnitario = parseNumber($event.target.value)"
                             @focus="costoUnitarioFocused = true"
                             @blur="costoUnitarioFocused = false"
-                            class="input-control" 
+                            class="input-control"
                             required
                         >
                     </div>
-                    
+
                     <div class="col-md-5">
                         <label class="form-label">Costo Parcial ($):</label>
                         <input
@@ -73,7 +73,21 @@
                         >
                     </div>
                 </div>
-                
+
+                <div class="form-group-row">
+                    <div class="col-md-3">
+                        <label class="form-label">Origen:</label>
+                        <select v-model="form.origen" class="input-control">
+                            <option value="original">Original</option>
+                            <option value="adicional">Adicional</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4" v-if="form.origen === 'adicional'">
+                        <label class="form-label">Fecha de incorporación:</label>
+                        <input type="date" v-model="form.fecha_incorporacion" class="input-control">
+                    </div>
+                </div>
+
                 <button type="submit" class="btn-primary btn-success mt-3">
                     {{ editMode ? "Actualizar Item" : "Guardar Item al Pliego" }}
                 </button>
@@ -103,7 +117,10 @@
                 <tbody>
                     <tr v-for="item in itemsPliego" :key="item.id">
                         <td>{{ item.numeroItem }}</td>
-                        <td>{{ item.ItemGeneral?.nombre || item.descripcionItem }}</td>
+                        <td>
+                            {{ item.ItemGeneral?.nombre || item.descripcionItem }}
+                            <span v-if="item.origen === 'adicional'" class="badge-adicional">Adicional</span>
+                        </td>
                         <td>{{ item.ItemGeneral?.unidadMedida || item.unidadMedida }}</td>
                         <td>{{ item.cantidad }}</td>
                         <td>${{ formatNumber(item.costoUnitario) }}</td>
@@ -121,9 +138,6 @@
                         <td v-if="authStore.canModify"></td>
                     </tr>
 
-                    <!-- El desglose se oculta en las obras marcadas como
-                         "solo costo total" (ver el computed soloCostoTotal) -->
-                    <template v-if="!soloCostoTotal">
                     <tr class="resumen-row">
                         <td colspan="5">Gastos Generales (10%)</td>
                         <td>${{ formatNumber(gastosGenerales) }}</td>
@@ -165,7 +179,6 @@
                         <td><strong>${{ formatNumber(precioTotalObra) }}</strong></td>
                         <td v-if="authStore.canModify"></td>
                     </tr>
-                    </template>
 
                 </tbody>
             </table>
@@ -202,7 +215,9 @@ export default {
                 cantidad: 0,
                 costoUnitario: 0,
                 costoParcial: 0,
-                ItemGeneralId: null
+                ItemGeneralId: null,
+                origen: 'original',
+                fecha_incorporacion: null
             },
             mensaje: '',
             error: '',
@@ -230,17 +245,6 @@ export default {
     },
 
     computed: {
-        // ⚠️ Obras que en la carga de ÍTEMS muestran SOLO el costo total, sin el
-        // desglose de gastos generales, beneficio, IVA e ingresos brutos.
-        // El certificado, en cambio, siempre lleva su desglose completo.
-        //
-        // TODO: esto debería ser un campo de la obra (ej. `mostrar_desglose`)
-        // en lugar de una lista de IDs acá. Mientras siga siendo una lista,
-        // agregar obras nuevas obliga a tocar código.
-        soloCostoTotal() {
-            const OBRAS_SOLO_TOTAL = [2]; // 2 = Jardín Municipal N°12 Arco Iris
-            return OBRAS_SOLO_TOTAL.includes(Number(this.obraId));
-        },
         costoTotal() {
             return this.itemsPliego.reduce((sum, item) => sum + Number(item.costoParcial || 0), 0);
         },
@@ -336,6 +340,8 @@ export default {
             this.form.costoParcial = Number(item.costoParcial) || 0;
             this.costoParcialStr = this.formatNumber(Number(item.costoParcial) || 0);
             this.costoParcialManual = true;
+            this.form.origen = item.origen || 'original';
+            this.form.fecha_incorporacion = item.fecha_incorporacion || null;
 
             // foco en el input costo unitario para visual
             this.costoUnitarioFocused = true;
@@ -374,7 +380,9 @@ export default {
                 cantidad: this.form.cantidad,
                 costoUnitario: this.form.costoUnitario,
                 costoParcial: this.parseNumber(this.costoParcialStr),
-                ItemGeneralId: this.form.ItemGeneralId ? parseInt(this.form.ItemGeneralId) : null
+                ItemGeneralId: this.form.ItemGeneralId ? parseInt(this.form.ItemGeneralId) : null,
+                origen: this.form.origen,
+                fecha_incorporacion: this.form.origen === 'adicional' ? (this.form.fecha_incorporacion || null) : null,
             };
 
             try {
@@ -389,7 +397,7 @@ export default {
                 // reset
                 this.editMode = false;
                 this.editId = null;
-                this.form = { numeroItem: '', descripcionItem: '', unidadMedida: '', cantidad: 0, costoUnitario: 0, costoParcial: 0, ItemGeneralId: null };
+                this.form = { numeroItem: '', descripcionItem: '', unidadMedida: '', cantidad: 0, costoUnitario: 0, costoParcial: 0, ItemGeneralId: null, origen: 'original', fecha_incorporacion: null };
                 this.costoParcialStr = '';
                 this.costoParcialManual = false;
 
@@ -417,8 +425,8 @@ export default {
 <style scoped>
 /* Estilos adicionales para que el campo de unidad readonly se vea distinto */
 .bg-dark {
-    background-color: #22224E !important;
-    color: #ABABAB !important;
+    background-color: #1a1a1a !important; 
+    color: #f0c040 !important;
     font-weight: bold;
 }
 .large-card {
@@ -467,10 +475,23 @@ export default {
 }
 
 .resumen-final-row td {
-    background: #22224E;
-    color: #ABABAB;
+    background: #333;
+    color: #f0c040;
     font-size: 1.1em;
     font-weight: bold;
+}
+
+.badge-adicional {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    background: #f59e0b;
+    color: #1c1917;
+    border-radius: 999px;
+    font-size: 0.72em;
+    font-weight: 700;
+    vertical-align: middle;
+    letter-spacing: 0.03em;
 }
 
 /* Ajustes responsivos */

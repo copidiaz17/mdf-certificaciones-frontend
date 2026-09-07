@@ -11,17 +11,17 @@
 
       <div class="campo">
         <label>Fecha de Emisión</label>
-        <input type="date" v-model="cert.fecha_certificacion" />
+        <input type="date" v-model="cert.fecha_certificacion" min="2000-01-01" max="2099-12-31" />
       </div>
 
       <div class="campo">
         <label>Periodo Desde</label>
-        <input type="date" v-model="cert.periodo_desde" />
+        <input type="date" v-model="cert.periodo_desde" min="2000-01-01" max="2099-12-31" />
       </div>
 
       <div class="campo">
         <label>Periodo Hasta</label>
-        <input type="date" v-model="cert.periodo_hasta" />
+        <input type="date" v-model="cert.periodo_hasta" min="2000-01-01" max="2099-12-31" />
       </div>
 
       <!-- Badge de repartición (normalizado) -->

@@ -1,10 +1,16 @@
 <template>
   <div class="cert-detalle-view">
-    <h2 class="titulo">Detalle de Certificación
+    <h2 class="titulo">
+      Detalle de Certificación
       <span v-if="certificado.anulada" class="badge-anulada">ANULADA</span>
     </h2>
-    <p v-if="certificado.anulada && certificado.anulada_por" class="aviso-anulada">
-      Anulada por {{ certificado.anulada_por.nombre }} — no se computa en el acumulado.
+
+    <p v-if="certificado.anulada" class="aviso-anulada">
+      <template v-if="certificado.anulada_por">
+        Anulada por <strong>{{ certificado.anulada_por.nombre }}</strong>.
+      </template>
+      No se computa en el acumulado ni en el tope del 100%, y no se puede
+      editar. No se borró: se puede reactivar.
     </p>
 
     <!-- ENCABEZADO -->
@@ -26,14 +32,6 @@
         <p v-if="certificado.totalProyecto">
           <strong>Participación sobre obra:</strong>
           {{ certificado.porcentajeFinanciero.toFixed(2) }}%
-        </p>
-        <p v-if="certificado.creado_por" class="auditoria">
-          <strong>Emitido por:</strong> {{ certificado.creado_por.nombre }}
-          <span v-if="certificado.creado_en"> · {{ formatFecha(certificado.creado_en) }}</span>
-        </p>
-        <p v-if="certificado.editado_por" class="auditoria">
-          <strong>Última edición:</strong> {{ certificado.editado_por.nombre }}
-          <span v-if="certificado.editado_en"> · {{ formatFecha(certificado.editado_en) }}</span>
         </p>
       </div>
     </div>
@@ -150,8 +148,14 @@
     <div class="acciones-pdf">
       <button class="btn-pdf" @click="exportarPDF" v-if="items.length">📄 Exportar PDF</button>
       <button v-if="!certificado.anulada" class="btn-editar" @click="irAEditar">✏️ Editar</button>
-      <button v-if="!certificado.anulada" class="btn-anular" @click="anular">🚫 Anular</button>
-      <button v-else class="btn-reactivar" @click="reactivar">↩️ Reactivar</button>
+      <button
+        v-if="!certificado.anulada"
+        class="btn-anular" :disabled="trabajando" @click="anular"
+      >🚫 Anular</button>
+      <button
+        v-else
+        class="btn-reactivar" :disabled="trabajando" @click="reactivar"
+      >↩️ Reactivar</button>
       <button class="btn-volver" @click="$router.back()">Volver</button>
     </div>
   </div>
@@ -165,7 +169,8 @@ import { useRouter } from "vue-router";
 
 export default {
   name: "CertificacionDetalleView",
-  props: ["certId", "obraId"],
+  props: ["obraId", "certId"],
+
   setup() {
     const router = useRouter();
     return { router };
@@ -191,13 +196,11 @@ export default {
         ingresos_brutos: 0,
         totalProyecto: 0,
         porcentajeFinanciero: 0,
-        creado_por: null,
-        editado_por: null,
-        creado_en: null,
-        editado_en: null,
         anulada: false,
         anulada_por: null,
       },
+      // Mientras se anula o se reactiva, para que no se apriete dos veces.
+      trabajando: false,
       items: [],
     };
   },
@@ -216,6 +219,53 @@ export default {
     },
   },
   methods: {
+    irAEditar() {
+      this.router.push({
+        name: "EditarCertificacion",
+        params: { obraId: this.obraId, certId: this.certId },
+      });
+    },
+
+    // Anular no borra: marca. Del otro lado, en el sistema de costos, puede
+    // haber una factura emitida contra este certificado — por eso el aviso
+    // dice lo que pasa y no solo "¿está seguro?".
+    async anular() {
+      const ok = confirm(
+        "¿Anular esta certificación?\n\n" +
+        "Deja de contar en el acumulado y en el tope del 100%, así que sus " +
+        "ítems vuelven a quedar disponibles.\n\n" +
+        "No se borra: se puede reactivar."
+      );
+      if (!ok) return;
+
+      this.trabajando = true;
+      try {
+        const res = await api.post(`/certificaciones/${this.certId}/anular`);
+        if (res.data?.ok) await this.cargarDetalle();
+        else alert(res.data?.error || "No se pudo anular la certificación.");
+      } catch (e) {
+        alert(e?.response?.data?.error || "No se pudo anular la certificación.");
+      } finally {
+        this.trabajando = false;
+      }
+    },
+
+    // Puede fallar por una razón legítima: si mientras estuvo anulada se
+    // certificó el mismo ítem en otro certificado, reactivarla pasaría del
+    // 100%. El servidor lo explica con el número; acá se muestra tal cual.
+    async reactivar() {
+      this.trabajando = true;
+      try {
+        const res = await api.post(`/certificaciones/${this.certId}/reactivar`);
+        if (res.data?.ok) await this.cargarDetalle();
+        else alert(res.data?.error || "No se pudo reactivar la certificación.");
+      } catch (e) {
+        alert(e?.response?.data?.error || "No se pudo reactivar la certificación.");
+      } finally {
+        this.trabajando = false;
+      }
+    },
+
     async cargarDetalle() {
       try {
         const res = await api.get(
@@ -243,42 +293,6 @@ export default {
       return Number(n || 0).toLocaleString("es-AR", {
         maximumFractionDigits: 2,
       });
-    },
-    formatFecha(f) {
-      if (!f) return "-";
-      const d = new Date(f);
-      if (isNaN(d)) return "-";
-      return d.toLocaleString("es-AR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    },
-    irAEditar() {
-      this.router.push({
-        name: "EditarCertificacion",
-        params: { obraId: this.obraId || this.certificado.obraId, certId: this.certId },
-      });
-    },
-    async anular() {
-      if (!confirm("¿Anular esta certificación? Queda fuera del acumulado y del 100%. No se borra (se puede reactivar).")) return;
-      try {
-        const res = await api.post(`/certificaciones/${this.certId}/anular`);
-        if (res.data.ok) await this.cargarDetalle();
-      } catch (e) {
-        alert(e?.response?.data?.error || "No se pudo anular la certificación.");
-      }
-    },
-    async reactivar() {
-      if (!confirm("¿Reactivar esta certificación? Vuelve a computar en el acumulado.")) return;
-      try {
-        const res = await api.post(`/certificaciones/${this.certId}/reactivar`);
-        if (res.data.ok) await this.cargarDetalle();
-      } catch (e) {
-        alert(e?.response?.data?.error || "No se pudo reactivar la certificación.");
-      }
     },
     exportarPDF() {
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -363,10 +377,9 @@ export default {
 
       // Pie de pagina
       const pageCount = doc.internal.getNumberOfPages();
-      const emisor = c.creado_por ? "Emitido por: " + c.creado_por.nombre + "  |  " : "";
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i); doc.setFontSize(7); doc.setTextColor(150);
-        doc.text(emisor + "Generado el " + new Date().toLocaleDateString("es-AR") + " - Pag. " + i + " de " + pageCount, 14, doc.internal.pageSize.height - 8);
+        doc.text("Generado el " + new Date().toLocaleDateString("es-AR") + " - Pag. " + i + " de " + pageCount, 14, doc.internal.pageSize.height - 8);
       }
 
       const nombre = (c.obraNombre || "obra").replace(/ /g, "-");
@@ -414,16 +427,6 @@ export default {
 
 .datos-cert p {
   margin: 2px 0;
-}
-
-/* Líneas de auditoría (emitido / editado por) */
-.auditoria {
-  color: #93c5a9;
-  font-size: 0.82rem;
-  margin-top: 6px !important;
-}
-.auditoria strong {
-  color: #bbf7d0;
 }
 
 /* SUBTÍTULO ÍTEMS */
@@ -571,13 +574,11 @@ export default {
 }
 .btn-pdf:hover { background: #15803d; }
 
-/* Botón volver en la misma línea de verde */
 .btn-editar {
-  margin-top: 16px;
   padding: 8px 16px;
   border-radius: 999px;
   border: none;
-  background: #2563eb;
+  background: #1d4ed8;
   color: #eff6ff;
   cursor: pointer;
   font-size: 0.9rem;
@@ -585,54 +586,51 @@ export default {
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.btn-editar:hover { background: #1d4ed8; }
+.btn-editar:hover { background: #1e40af; }
+
+/* Anular es destructivo aunque se pueda deshacer: se ve como tal. Reactivar
+   es la vuelta atrás, en ámbar, no en el verde de una acción normal. */
+.btn-anular,
+.btn-reactivar {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.btn-anular { background: #b91c1c; color: #fef2f2; }
+.btn-anular:hover { background: #991b1b; }
+.btn-reactivar { background: #ca8a04; color: #fefce8; }
+.btn-reactivar:hover { background: #a16207; }
+.btn-anular:disabled,
+.btn-reactivar:disabled { opacity: 0.55; cursor: wait; }
 
 .badge-anulada {
-  display: inline-block;
-  margin-left: 12px;
-  background: #7f1d1d;
-  color: #fecaca;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  padding: 4px 12px;
-  border-radius: 999px;
+  margin-left: 10px;
   vertical-align: middle;
-}
-.aviso-anulada {
-  color: #fca5a5;
-  font-size: 0.85rem;
-  margin: -6px 0 14px;
-}
-.btn-anular {
-  margin-top: 16px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: none;
   background: #b91c1c;
-  color: #fee2e2;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.btn-anular:hover { background: #991b1b; }
-.btn-reactivar {
-  margin-top: 16px;
-  padding: 8px 16px;
+  color: #fef2f2;
   border-radius: 999px;
-  border: none;
-  background: #ca8a04;
-  color: #fef9c3;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  padding: 3px 12px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
-.btn-reactivar:hover { background: #a16207; }
 
+.aviso-anulada {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-left: 4px solid #b91c1c;
+  background: rgba(185, 28, 28, 0.08);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* Botón volver en la misma línea de verde */
 .btn-volver {
   margin-top: 16px;
   padding: 8px 16px;
