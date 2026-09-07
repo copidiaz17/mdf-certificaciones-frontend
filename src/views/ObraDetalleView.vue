@@ -19,6 +19,10 @@
         class="btn-primary btn-warning btn-lg action-btn">
         Excedentes de obra
       </button>
+      <button @click="goToInformes"
+        class="btn-primary btn-info btn-lg action-btn">
+        📄 Informes de avance
+      </button>
       <button v-if="itemsPliego.length > 0"
         @click="$router.push({ name: 'VerPliego', params: { obraId: route.params.obraId } })"
         class="btn-primary btn-info btn-lg action-btn">
@@ -568,6 +572,10 @@ export default {
 
     goToAddAvanceObra() {
       this.$router.push({ name: "AddAvanceObra", params: { obraId: this.route.params.obraId } });
+    },
+
+    goToInformes() {
+      this.$router.push({ name: "InformesAvance", params: { obraId: this.route.params.obraId } });
     },
 
     goToExcedentes() {

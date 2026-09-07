@@ -116,6 +116,16 @@ const routes = [
         meta: { requiresAuth: true, requiresModification: true },
       },
 
+      // El informe que arma el jefe de obra para un rango de fechas, y que
+      // queda guardado con sus números congelados.
+      {
+        path: "obra/:obraId/informes-avance",
+        name: "InformesAvance",
+        component: () => import("../views/InformesAvanceView.vue"),
+        props: true,
+        meta: { requiresAuth: true },
+      },
+
       // Lo ejecutado por encima del pliego. Solo lectura para todos: convertir
       // en ítem lo controla la propia pantalla según el rol.
       {
