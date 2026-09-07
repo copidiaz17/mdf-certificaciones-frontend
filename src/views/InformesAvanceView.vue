@@ -111,8 +111,48 @@
           </small>
         </div>
 
+        <!-- ── Fotos, antes de guardar ─────────────────────────────── -->
+        <div class="campo">
+          <label>
+            Fotos <small>(opcional)</small>
+            <span v-if="porSubir.length" class="fotos-cuenta">{{ porSubir.length }}</span>
+          </label>
+
+          <label class="btn-elegir">
+            <input type="file" accept="image/*" multiple @change="elegirFotos" hidden />
+            📷 Elegir fotos
+          </label>
+
+          <small class="ayuda" v-if="!porSubir.length">
+            Las fotos se suben cuando se guarda el informe. También se pueden
+            agregar después.
+          </small>
+
+          <div v-if="porSubir.length" class="por-subir">
+            <p class="chico">
+              Escribí qué se ve en cada una. Dentro de seis meses, una foto sin
+              texto es un muro que nadie sabe cuál es.
+            </p>
+            <div v-for="(f, i) in porSubir" :key="i" class="por-subir-fila">
+              <img :src="f.previa" alt="" class="previa-mini" />
+              <div class="por-subir-datos">
+                <span class="nombre-archivo">{{ f.archivo.name }}</span>
+                <input
+                  type="text" v-model="f.epigrafe" maxlength="300"
+                  placeholder="Sector B, losa terminada"
+                />
+              </div>
+              <button class="btn-quitar" @click="quitarPorSubir(i)" title="Quitar">✕</button>
+            </div>
+          </div>
+        </div>
+
         <button class="btn-guardar" :disabled="guardando" @click="guardar">
-          {{ guardando ? "Guardando…" : "Guardar informe" }}
+          <template v-if="guardando">{{ pasoGuardado || "Guardando…" }}</template>
+          <template v-else-if="porSubir.length">
+            Guardar informe con {{ porSubir.length }} foto(s)
+          </template>
+          <template v-else>Guardar informe</template>
         </button>
         <p class="nota">{{ vista.nota }}</p>
       </div>
@@ -313,6 +353,7 @@ export default {
       cargandoLista: true,
       porSubir: [],
       subiendo: false,
+      pasoGuardado: "",
       atajos: [rangoDeMes(0), rangoDeMes(-1)],
     };
   },
@@ -372,8 +413,16 @@ export default {
       }
     },
 
+    // Guarda el informe y, si hay fotos elegidas, las sube en el mismo paso.
+    //
+    // Son dos llamadas y no una porque las fotos necesitan un informe al que
+    // colgarse, y todavía no existe. Se hace en este orden a propósito: el
+    // informe es lo que no se puede perder; las fotos, si fallan, se pueden
+    // volver a subir sin rehacer nada.
     async guardar() {
       this.guardando = true;
+      this.pasoGuardado = "Guardando el informe…";
+      let creado = null;
       try {
         const { data } = await api.post(`/obras/${this.obraId}/informes-avance`, {
           fecha_desde: this.form.fecha_desde,
@@ -381,21 +430,42 @@ export default {
           titulo: this.form.titulo,
           observaciones: this.form.observaciones,
         });
-        this.toast.success(data.message || "Informe guardado");
+        creado = data;
+      } catch (e) {
+        this.toast.error(e?.response?.data?.error || "No se pudo guardar el informe");
+        this.guardando = false;
+        this.pasoGuardado = "";
+        return;
+      }
+
+      // El informe ya está a salvo. Lo que siga puede fallar sin llevárselo.
+      let fotosOk = true;
+      if (this.porSubir.length && creado?.id) {
+        this.pasoGuardado = `Subiendo ${this.porSubir.length} foto(s)…`;
+        fotosOk = await this.subirFotos(creado.id);
+      }
+
+      if (fotosOk) {
+        this.toast.success(creado.message || "Informe guardado");
         this.form.titulo = "";
         this.form.observaciones = "";
         this.vista = null;
-        await this.traerInformes();
-        // Se abre solo: recién guardado es cuando uno quiere adjuntarle las
-        // fotos, y el bloque para subirlas vive adentro del informe abierto.
-        // Si queda cerrado, hay que adivinar que primero hay que bajar hasta
-        // la lista y apretar "Ver".
-        if (data.id) await this.abrir(data.id);
-      } catch (e) {
-        this.toast.error(e?.response?.data?.error || "No se pudo guardar el informe");
-      } finally {
-        this.guardando = false;
+      } else {
+        // Las fotos siguen elegidas: se reintentan desde el informe abierto,
+        // sin volver a armar nada. Perderlas en silencio sería lo peor que
+        // podría pasar acá — son las que se sacaron en obra.
+        this.toast.warning(
+          "El informe se guardó, pero las fotos no se subieron. Quedaron elegidas: " +
+          "probá de nuevo desde el informe, abajo."
+        );
       }
+
+      await this.traerInformes();
+      // Se abre solo: es donde se ven las fotos y donde se agregan más.
+      if (creado?.id) await this.abrir(creado.id);
+
+      this.guardando = false;
+      this.pasoGuardado = "";
     },
 
     async abrir(id) {
@@ -427,8 +497,19 @@ export default {
       this.porSubir = [];
     },
 
-    async subirFotos() {
-      if (!this.porSubir.length || !this.abierto) return;
+    /**
+     * Sube las fotos elegidas a un informe.
+     *
+     * Recibe el id porque se usa en dos momentos: al guardar un informe nuevo
+     * —cuando todavía no hay ninguno abierto— y desde uno ya emitido.
+     *
+     * Devuelve si salió bien, para que quien la llama decida qué decir: al
+     * guardar no alcanza con un cartel de error, porque el informe SÍ se
+     * guardó y hay que aclararlo.
+     */
+    async subirFotos(informeId) {
+      const id = informeId || this.abierto?.id;
+      if (!this.porSubir.length || !id) return true;
       this.subiendo = true;
       try {
         const fd = new FormData();
@@ -437,15 +518,21 @@ export default {
           fd.append("epigrafes", f.epigrafe || "");
         }
         const { data } = await api.post(
-          "/obras/" + this.obraId + "/informes-avance/" + this.abierto.id + "/fotos",
+          "/obras/" + this.obraId + "/informes-avance/" + id + "/fotos",
           fd,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
-        this.toast.success(data.message || "Fotos subidas");
+        // El mensaje del servidor avisa cuáles quedaron sin epígrafe.
+        if (!informeId) this.toast.success(data.message || "Fotos subidas");
         this.cancelarSubida();
-        await this.abrir(this.abierto.id);
+        await this.abrir(id);
+        return true;
       } catch (e) {
-        this.toast.error(e?.response?.data?.message || "No se pudieron subir las fotos");
+        // Al guardar, el aviso lo da `guardar()`: acá saldrían dos carteles.
+        if (!informeId) {
+          this.toast.error(e?.response?.data?.message || "No se pudieron subir las fotos");
+        }
+        return false;
       } finally {
         this.subiendo = false;
       }
@@ -696,4 +783,10 @@ export default {
 }
 .foto-acciones button:hover { background: rgba(148,163,184,.15); }
 .foto-acciones .peligro { color: #f87171; }
+.btn-elegir {
+  display: inline-block; align-self: flex-start;
+  padding: 7px 16px; border: 1px dashed rgba(148,163,184,.55);
+  border-radius: 8px; cursor: pointer; font-size: .88rem; font-weight: 600;
+}
+.btn-elegir:hover { border-color: #1d4ed8; }
 </style>
