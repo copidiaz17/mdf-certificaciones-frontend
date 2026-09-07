@@ -135,6 +135,8 @@
             <div class="emitido-pie">
               Emitido el {{ fecha(inf.fecha_informe) }}
               <template v-if="inf.autor"> · {{ inf.autor.nombre }}</template>
+              <span v-if="inf.fotos" class="tiene-fotos">📷 {{ inf.fotos }}</span>
+              <span v-else class="sin-fotos">sin fotos</span>
             </div>
             <p v-if="inf.observaciones" class="emitido-obs">{{ inf.observaciones }}</p>
           </div>
@@ -384,6 +386,11 @@ export default {
         this.form.observaciones = "";
         this.vista = null;
         await this.traerInformes();
+        // Se abre solo: recién guardado es cuando uno quiere adjuntarle las
+        // fotos, y el bloque para subirlas vive adentro del informe abierto.
+        // Si queda cerrado, hay que adivinar que primero hay que bajar hasta
+        // la lista y apretar "Ver".
+        if (data.id) await this.abrir(data.id);
       } catch (e) {
         this.toast.error(e?.response?.data?.error || "No se pudo guardar el informe");
       } finally {
@@ -600,6 +607,9 @@ export default {
 .emitido-titulo { font-weight: 700; }
 .emitido-rango { font-weight: 400; opacity: 0.7; margin-left: 8px; font-size: 0.88rem; }
 .emitido-pie { font-size: 0.8rem; opacity: 0.65; margin-top: 2px; }
+.tiene-fotos { margin-left: 8px; opacity: 1; }
+/* "Sin fotos" es un aviso suave, no un error: hay informes que no las llevan. */
+.sin-fotos { margin-left: 8px; font-style: italic; opacity: 0.6; }
 .emitido-obs { margin: 6px 0 0; font-size: 0.88rem; line-height: 1.5; opacity: 0.85; }
 .emitido-acciones { display: flex; gap: 6px; flex: none; }
 
