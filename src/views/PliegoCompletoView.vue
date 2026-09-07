@@ -104,12 +104,15 @@ export default {
   },
 
   computed: {
-    // ⚠️ Obras que en el pliego muestran SOLO el costo total, sin el desglose.
-    // Tiene que coincidir con la lista de CargarPliegoView.
-    // TODO: pasarlo a un campo de la obra en vez de una lista de IDs.
+    // Las obras contratadas por un precio total muestran SOLO el total, sin
+    // el desglose de gastos generales, beneficios, IVA e ingresos brutos.
+    //
+    // Antes era una lista de números de obra escrita acá —`[2]`— con un TODO
+    // pidiendo esto. Ahora es un campo de la obra: se marca desde la pantalla,
+    // sirve para cualquier obra nueva, y el mismo código funciona en las dos
+    // empresas, donde el número 2 es una obra distinta.
     soloCostoTotal() {
-      const OBRAS_SOLO_TOTAL = [2]; // 2 = Jardín Municipal N°12 Arco Iris
-      return OBRAS_SOLO_TOTAL.includes(Number(this.obraId));
+      return Boolean(this.obra?.solo_costo_total);
     },
     costoTotal() {
       return this.items.reduce((sum, i) => sum + Number(i.costoParcial), 0);

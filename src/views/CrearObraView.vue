@@ -54,6 +54,23 @@
           </div>
         </div>
 
+        <div class="form-group-row">
+          <div class="col-md-12">
+            <label class="opcion-total">
+              <input type="checkbox" v-model="form.solo_costo_total" />
+              <span>
+                <strong>Contratada por un precio total</strong>
+                <small>
+                  El pliego muestra solo el total, sin abrir gastos generales,
+                  beneficios, IVA ni ingresos brutos. Marcala si el contrato no
+                  tiene ese desglose: mostrarlo sería inventar una apertura que
+                  no existe.
+                </small>
+              </span>
+            </label>
+          </div>
+        </div>
+
         <button
           type="submit"
           class="btn-primary btn-success mt-3"
@@ -87,6 +104,7 @@ export default {
         nombre: "",
         ubicacion: "",
         reparticion: "", // 👈 NUEVO
+        solo_costo_total: false,
       },
       mensaje: "",
       error: "",
@@ -133,5 +151,29 @@ export default {
 }
 .col-md-12 {
   flex: 1;
+}
+
+.opcion-total {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.opcion-total input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  cursor: pointer;
+}
+.opcion-total span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.opcion-total small {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  opacity: 0.75;
 }
 </style>
