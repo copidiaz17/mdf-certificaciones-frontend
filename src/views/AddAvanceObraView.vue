@@ -71,6 +71,8 @@
           <td>
             {{ item.descripcion }}
             <span v-if="item.origen === 'excedente'" class="etiqueta-exc">excedente</span>
+            <span v-else-if="item.origen === 'adicional'" class="etiqueta-adic">adicional</span>
+            <span v-if="Number(item.costoUnitario) === 0" class="etiqueta-sinp">sin precio</span>
           </td>
           <td>{{ item.unidad }}</td>
           <td>{{ mostrar(item.cantidad) }} {{ item.unidad }}</td>
@@ -111,6 +113,48 @@
         </tr>
       </tbody>
     </table>
+
+    <!-- ── Trabajo que el pliego no tiene ──────────────────────────────── -->
+    <div class="agregar-item">
+      <button v-if="!mostrandoAlta" class="btn-agregar-item" @click="mostrandoAlta = true">
+        ➕ Apareció un trabajo que no está en el pliego
+      </button>
+
+      <div v-else class="alta-caja">
+        <p class="alta-aviso">
+          Entra al pliego <strong>sin precio</strong>: cuánto se paga se define
+          con el comitente, en un adicional o en el replanteo. Acá se registra
+          <strong>qué se hizo y cuánto</strong>, que es lo que después se lleva
+          a negociar.
+        </p>
+
+        <div class="alta-fila">
+          <div class="alta-campo alta-ancho">
+            <label>Qué trabajo es *</label>
+            <input type="text" v-model="nuevo.descripcion" placeholder="Demolición de muro existente" />
+          </div>
+          <div class="alta-campo">
+            <label>Unidad *</label>
+            <input type="text" v-model="nuevo.unidad" placeholder="m3, m2, un…" />
+          </div>
+          <div class="alta-campo">
+            <label>Cantidad estimada</label>
+            <input type="number" min="0" step="0.00001" v-model.number="nuevo.cantidad" placeholder="opcional" />
+          </div>
+          <div class="alta-campo">
+            <label>N° de ítem</label>
+            <input type="text" v-model="nuevo.numero_item" placeholder="automático" />
+          </div>
+        </div>
+
+        <div class="alta-botones">
+          <button class="btn-agregar-item" :disabled="!puedeAgregar || agregando" @click="agregarItem">
+            {{ agregando ? "Agregando…" : "Agregar al pliego" }}
+          </button>
+          <button class="btn-cancelar-alta" @click="mostrandoAlta = false">Cancelar</button>
+        </div>
+      </div>
+    </div>
 
     <button class="btn-guardar" @click="guardarAvance">
       {{ editMode ? "Actualizar Avance de Obra" : "Guardar Avance de Obra" }}
@@ -196,10 +240,21 @@ export default {
       avisosExcedente: [],
       historial: [],
       cargandoHistorial: false,
+
+      // Alta de un trabajo que el pliego no tiene.
+      mostrandoAlta: false,
+      agregando: false,
+      nuevo: { descripcion: "", unidad: "", cantidad: null, numero_item: "" },
     };
   },
 
   computed: {
+    // Descripción y unidad son lo mínimo: sin unidad no se puede cargar una
+    // cantidad ejecutada, que es el único dato que este ítem va a tener.
+    puedeAgregar() {
+      return Boolean(this.nuevo.descripcion.trim() && this.nuevo.unidad.trim());
+    },
+
     totalProyecto() {
       return this.avanceItems.reduce((acc, i) => acc + Number(i.costoParcial || 0), 0);
     },
@@ -403,6 +458,29 @@ export default {
       });
 
       this.avanceItems = Object.values(disponiblesMap);
+    },
+
+    async agregarItem() {
+      this.agregando = true;
+      try {
+        const { data } = await api.post(`/avanceObra/${this.obraId}/items`, {
+          descripcion: this.nuevo.descripcion.trim(),
+          unidad: this.nuevo.unidad.trim(),
+          cantidad: this.nuevo.cantidad,
+          numero_item: this.nuevo.numero_item.trim(),
+        });
+        this.toast.success(data.message || "Ítem agregado");
+        this.nuevo = { descripcion: "", unidad: "", cantidad: null, numero_item: "" };
+        this.mostrandoAlta = false;
+        // Se vuelve a traer la lista para que el ítem nuevo aparezca en la
+        // tabla y se le pueda cargar el avance sin salir de la pantalla, que
+        // es todo el punto de tenerlo acá.
+        await this.cargarPliego();
+      } catch (e) {
+        this.toast.error(e?.response?.data?.message || "No se pudo agregar el ítem");
+      } finally {
+        this.agregando = false;
+      }
     },
 
     async guardarAvance() {
@@ -765,4 +843,39 @@ tr.fila-excedida td { background: rgba(180, 83, 9, 0.06); }
 }
 .historial-empty span { font-size: 2rem; }
 .historial-empty p { margin: 0; }
+
+/* ── Trabajo que el pliego no tiene ─────────────────────────────────── */
+.agregar-item { margin: 16px 0; }
+.btn-agregar-item {
+  padding: 9px 18px; border: none; border-radius: 8px;
+  background: #0f766e; color: #f0fdfa; font-weight: 700; cursor: pointer;
+}
+.btn-agregar-item:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-cancelar-alta {
+  padding: 9px 18px; border: 1px solid rgba(148,163,184,.45);
+  border-radius: 8px; background: transparent; color: inherit; cursor: pointer;
+}
+.alta-caja {
+  border: 1px solid #0f766e; border-radius: 10px; padding: 14px;
+  background: rgba(15, 118, 110, 0.08);
+}
+.alta-aviso { margin: 0 0 12px; font-size: .88rem; line-height: 1.6; }
+.alta-fila { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.alta-campo { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px; }
+.alta-campo.alta-ancho { flex: 3; min-width: 240px; }
+.alta-campo label { font-size: .8rem; font-weight: 600; }
+.alta-campo input {
+  padding: 8px 10px; border-radius: 8px;
+  border: 1px solid rgba(148,163,184,.45);
+  background: rgba(15,23,42,.35); color: inherit; font: inherit;
+}
+.alta-botones { display: flex; gap: 10px; }
+.etiqueta-adic {
+  margin-left: 6px; font-size: .62rem; text-transform: uppercase;
+  background: #0f766e; color: #f0fdfa; border-radius: 999px; padding: 1px 7px;
+}
+.etiqueta-sinp {
+  margin-left: 6px; font-size: .62rem; text-transform: uppercase;
+  background: #7c3aed; color: #f5f3ff; border-radius: 999px; padding: 1px 7px;
+}
 </style>
