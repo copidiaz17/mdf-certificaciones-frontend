@@ -176,6 +176,70 @@
 
         <p v-if="abierto.observaciones" class="obs-grande">{{ abierto.observaciones }}</p>
 
+        <!-- ── Fotos ─────────────────────────────────────────────── -->
+        <div class="fotos-bloque">
+          <div class="fotos-cabecera">
+            <h4>
+              Fotos
+              <span v-if="abierto.fotos && abierto.fotos.length" class="fotos-cuenta">
+                {{ abierto.fotos.length }}
+              </span>
+            </h4>
+            <label v-if="authStore.canModify" class="btn-subir">
+              <input type="file" accept="image/*" multiple @change="elegirFotos" hidden />
+              {{ subiendo ? "Subiendo…" : "📷 Agregar fotos" }}
+            </label>
+          </div>
+
+          <p v-if="!(abierto.fotos && abierto.fotos.length) && !porSubir.length" class="vacio">
+            Todavía no hay fotos. Un informe que dice «se hormigonó el sector B»
+            no prueba nada; la foto del sector B hormigonado, sí.
+          </p>
+
+          <!-- Elegidas, esperando su epígrafe -->
+          <div v-if="porSubir.length" class="por-subir">
+            <p class="chico">
+              Escribí qué se ve en cada una. Dentro de seis meses, una foto sin
+              texto es un muro que nadie sabe cuál es.
+            </p>
+            <div v-for="(f, i) in porSubir" :key="i" class="por-subir-fila">
+              <img :src="f.previa" alt="" class="previa-mini" />
+              <div class="por-subir-datos">
+                <span class="nombre-archivo">{{ f.archivo.name }}</span>
+                <input
+                  type="text" v-model="f.epigrafe" maxlength="300"
+                  placeholder="Sector B, losa terminada"
+                />
+              </div>
+              <button class="btn-quitar" @click="quitarPorSubir(i)" title="Quitar">✕</button>
+            </div>
+            <div class="por-subir-botones">
+              <button class="btn-subir" :disabled="subiendo" @click="subirFotos">
+                {{ subiendo ? "Subiendo…" : "Subir " + porSubir.length + " foto(s)" }}
+              </button>
+              <button class="btn-cancelar-fotos" @click="cancelarSubida">Cancelar</button>
+            </div>
+          </div>
+
+          <!-- Las que ya están -->
+          <div v-if="abierto.fotos && abierto.fotos.length" class="grilla-fotos">
+            <figure v-for="f in abierto.fotos" :key="f.id" class="foto">
+              <a :href="f.url" target="_blank" rel="noopener">
+                <img :src="f.miniatura || f.url" :alt="f.epigrafe || 'Foto del informe'" loading="lazy" />
+              </a>
+              <figcaption>
+                <span v-if="f.epigrafe">{{ f.epigrafe }}</span>
+                <span v-else class="sin-epigrafe">Sin epígrafe</span>
+                <small v-if="f.subidaPor">{{ f.subidaPor.nombre }}</small>
+              </figcaption>
+              <div v-if="authStore.canModify" class="foto-acciones">
+                <button @click="editarEpigrafe(f)">Epígrafe</button>
+                <button class="peligro" @click="borrarFoto(f)">Borrar</button>
+              </div>
+            </figure>
+          </div>
+        </div>
+
         <div class="tabla-scroll" v-if="abierto.datos.items.length">
           <table class="tabla">
             <thead>
@@ -245,6 +309,8 @@ export default {
       cargando: false,
       guardando: false,
       cargandoLista: true,
+      porSubir: [],
+      subiendo: false,
       atajos: [rangoDeMes(0), rangoDeMes(-1)],
     };
   },
@@ -331,6 +397,77 @@ export default {
         this.abierto = data;
       } catch (e) {
         this.toast.error(e?.response?.data?.message || "No se pudo abrir el informe");
+      }
+    },
+
+    elegirFotos(e) {
+      const archivos = Array.from(e.target.files || []);
+      // La vista previa es local: no se sube nada hasta apretar Subir, así se
+      // escribe el epígrafe ANTES y no después, cuando ya nadie se acuerda.
+      for (const archivo of archivos) {
+        this.porSubir.push({ archivo, epigrafe: "", previa: URL.createObjectURL(archivo) });
+      }
+      e.target.value = "";
+    },
+
+    quitarPorSubir(i) {
+      URL.revokeObjectURL(this.porSubir[i].previa);
+      this.porSubir.splice(i, 1);
+    },
+
+    cancelarSubida() {
+      for (const f of this.porSubir) URL.revokeObjectURL(f.previa);
+      this.porSubir = [];
+    },
+
+    async subirFotos() {
+      if (!this.porSubir.length || !this.abierto) return;
+      this.subiendo = true;
+      try {
+        const fd = new FormData();
+        for (const f of this.porSubir) {
+          fd.append("fotos", f.archivo);
+          fd.append("epigrafes", f.epigrafe || "");
+        }
+        const { data } = await api.post(
+          "/obras/" + this.obraId + "/informes-avance/" + this.abierto.id + "/fotos",
+          fd,
+          { headers: { "Content-Type": "multipart/form-data" } }
+        );
+        this.toast.success(data.message || "Fotos subidas");
+        this.cancelarSubida();
+        await this.abrir(this.abierto.id);
+      } catch (e) {
+        this.toast.error(e?.response?.data?.message || "No se pudieron subir las fotos");
+      } finally {
+        this.subiendo = false;
+      }
+    },
+
+    async editarEpigrafe(f) {
+      const texto = prompt("¿Qué se ve en esta foto?", f.epigrafe || "");
+      if (texto === null) return;
+      try {
+        await api.put(
+          "/obras/" + this.obraId + "/informes-avance/" + this.abierto.id + "/fotos/" + f.id,
+          { epigrafe: texto }
+        );
+        await this.abrir(this.abierto.id);
+      } catch (e) {
+        this.toast.error(e?.response?.data?.message || "No se pudo cambiar el epígrafe");
+      }
+    },
+
+    async borrarFoto(f) {
+      const detalle = f.epigrafe ? "\n\n" + f.epigrafe : "";
+      if (!confirm("¿Borrar esta foto?" + detalle)) return;
+      try {
+        await api.delete(
+          "/obras/" + this.obraId + "/informes-avance/" + this.abierto.id + "/fotos/" + f.id
+        );
+        await this.abrir(this.abierto.id);
+      } catch (e) {
+        this.toast.error(e?.response?.data?.message || "No se pudo borrar la foto");
       }
     },
 
@@ -483,4 +620,70 @@ export default {
   border-left: 3px solid rgba(148, 163, 184, 0.5);
   padding-left: 12px; margin: 0 0 14px; line-height: 1.6;
 }
+
+/* ── Fotos ──────────────────────────────────────────────────────────── */
+.fotos-bloque { margin: 18px 0; }
+.fotos-cabecera {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; margin-bottom: 10px;
+}
+.fotos-cabecera h4 { margin: 0; }
+.fotos-cuenta {
+  margin-left: 6px; background: rgba(148,163,184,.3);
+  border-radius: 999px; padding: 1px 9px; font-size: .78rem;
+}
+.btn-subir {
+  padding: 7px 16px; border: none; border-radius: 8px;
+  background: #1d4ed8; color: #eff6ff; font-weight: 700;
+  cursor: pointer; font-size: .88rem;
+}
+.btn-subir:disabled { opacity: .5; cursor: not-allowed; }
+.btn-cancelar-fotos {
+  padding: 7px 16px; border: 1px solid rgba(148,163,184,.45);
+  border-radius: 8px; background: transparent; color: inherit; cursor: pointer;
+}
+
+.por-subir {
+  border: 1px dashed rgba(148,163,184,.5); border-radius: 10px;
+  padding: 12px; margin-bottom: 14px;
+}
+.por-subir-fila { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.previa-mini { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; flex: none; }
+.por-subir-datos { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.nombre-archivo {
+  font-size: .74rem; opacity: .6; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.por-subir-datos input {
+  padding: 7px 10px; border-radius: 8px;
+  border: 1px solid rgba(148,163,184,.45);
+  background: rgba(15,23,42,.35); color: inherit; font: inherit;
+}
+.btn-quitar {
+  border: none; background: transparent; color: inherit;
+  font-size: 1.1rem; cursor: pointer; opacity: .6; flex: none;
+}
+.btn-quitar:hover { opacity: 1; }
+.por-subir-botones { display: flex; gap: 10px; margin-top: 10px; }
+
+.grilla-fotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.foto { margin: 0; border: 1px solid rgba(148,163,184,.25); border-radius: 10px; overflow: hidden; }
+.foto img { width: 100%; height: 140px; object-fit: cover; display: block; }
+.foto figcaption {
+  padding: 8px 10px; font-size: .84rem; line-height: 1.45;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.foto figcaption small { opacity: .6; font-size: .72rem; }
+.sin-epigrafe { opacity: .5; font-style: italic; }
+.foto-acciones { display: flex; border-top: 1px solid rgba(148,163,184,.2); }
+.foto-acciones button {
+  flex: 1; padding: 6px; border: none; background: transparent;
+  color: inherit; cursor: pointer; font-size: .78rem;
+}
+.foto-acciones button:hover { background: rgba(148,163,184,.15); }
+.foto-acciones .peligro { color: #f87171; }
 </style>
