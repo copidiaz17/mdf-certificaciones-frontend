@@ -32,6 +32,10 @@
         class="btn-primary btn-success btn-lg action-btn">
         📅 Planificación / Replanteo
       </button>
+      <button @click="$router.push({ name: 'SubcontratosObra', params: { obraId: route.params.obraId } })"
+        class="btn-primary btn-dark btn-lg action-btn">
+        🧱 Subcontratistas
+      </button>
     </div>
 
     <!-- SKELETON mientras carga -->

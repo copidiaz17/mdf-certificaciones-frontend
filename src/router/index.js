@@ -15,6 +15,11 @@ import CrearObraView from "../views/CrearObraView.vue";
 import GestionarCatalogoView from "../views/GestionarCatalogoView.vue";
 import AddPlanificacionView from "../views/AddPlanificacionView.vue";
 import ReplanteoView from "../views/ReplanteoView.vue";
+import SubcontratosObraView from "../views/SubcontratosObraView.vue";
+import SubcontratoFormView from "../views/SubcontratoFormView.vue";
+import SubcontratoDetalleView from "../views/SubcontratoDetalleView.vue";
+import SubcontratoPlanView from "../views/SubcontratoPlanView.vue";
+import SubcontratoCertificadoView from "../views/SubcontratoCertificadoView.vue";
 import AddAvanceObraView from "../views/AddAvanceObraView.vue";
 import CrearUsuarioView from "../views/CrearUsuarioView.vue";
 import EditCertificacionView from "../views/EditCertificacionView.vue";
@@ -117,6 +122,15 @@ const routes = [
         props: true,
         meta: { requiresAuth: true, requiresModification: true },
       },
+
+      // ── Subcontratistas: circuito propio, aparte de las curvas de la obra ──
+      { path: "obra/:obraId/subcontratos", name: "SubcontratosObra", component: SubcontratosObraView, props: true, meta: { requiresAuth: true } },
+      { path: "obra/:obraId/subcontratos/nuevo", name: "NuevoSubcontrato", component: SubcontratoFormView, props: true, meta: { requiresAuth: true, requiresModification: true } },
+      { path: "obra/:obraId/subcontratos/:subId", name: "DetalleSubcontrato", component: SubcontratoDetalleView, props: true, meta: { requiresAuth: true } },
+      { path: "obra/:obraId/subcontratos/:subId/editar", name: "EditarSubcontrato", component: SubcontratoFormView, props: true, meta: { requiresAuth: true, requiresModification: true } },
+      { path: "obra/:obraId/subcontratos/:subId/plan", name: "PlanSubcontrato", component: SubcontratoPlanView, props: true, meta: { requiresAuth: true, requiresModification: true } },
+      { path: "obra/:obraId/subcontratos/:subId/certificados/nuevo", name: "NuevoCertificadoSub", component: SubcontratoCertificadoView, props: true, meta: { requiresAuth: true, requiresModification: true } },
+      { path: "obra/:obraId/subcontratos/:subId/certificados/:certId", name: "CertificadoSub", component: SubcontratoCertificadoView, props: true, meta: { requiresAuth: true } },
 
       {
         path: "obra/:obraId/pliego", // 👈 sin "/", ahora es /dashboard/obra/:obraId/pliego
