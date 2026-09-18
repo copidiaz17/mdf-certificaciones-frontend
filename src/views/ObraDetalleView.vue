@@ -395,10 +395,18 @@ export default {
       const realPlot = this.cutAfterLastChange(avance || []);
       const financieroPlot = this.cutAfterLastChange(financiero || []);
 
-      // Curvas de planificación: una por serie. Cuando hay replanteo se
-      // dibujan dos — la original atenuada y punteada, como testigo de lo que
-      // se había prometido, y el replanteo vigente en naranja por encima.
-      // Van detrás de las curvas de ejecución (order alto) y más gruesas.
+      // ── Curvas de plan: bandas anchas, detrás de todo ────────────────────
+      //
+      // El plan de trabajos se dibuja como una banda gruesa y translúcida, no
+      // como una línea: es el carril por el que la obra debería ir. Las curvas
+      // de ejecución —avance y certificación— van finas y por encima, para
+      // poder verlas contra ese carril.
+      //
+      // En Chart.js el `order` MÁS ALTO se dibuja primero, o sea más al fondo.
+      //
+      // Cuando aparece un replanteo, el carril vigente pasa a ser el suyo: es
+      // la banda más ancha de todas y en otro color, y la del plan original se
+      // atenúa y queda punteada, como testigo de lo que se había prometido.
       const planDatasets = [];
       const hayReplanteo = planificacionesCurvas && planificacionesCurvas.some((c) => c.tipo === "replanteo");
 
@@ -406,21 +414,25 @@ export default {
         planificacionesCurvas.forEach((curva) => {
           const esReplanteo = curva.tipo === "replanteo";
           const esVigente = curva.esVigente;
-          let borderColor, borderWidth, borderDash, label;
+          let borderColor, borderWidth, borderDash, label, order;
 
           if (!esReplanteo) {
-            label = hayReplanteo ? "Planificado (Original)" : "Planificado";
-            borderColor = hayReplanteo ? "rgba(56, 189, 248, 0.20)" : "rgba(56, 189, 248, 0.25)";
-            borderWidth = 16;
+            label = hayReplanteo ? "Plan original (reemplazado)" : "Plan de trabajos";
+            // Atenuada y punteada cuando ya no rige.
+            borderColor = hayReplanteo ? "rgba(56, 189, 248, 0.13)" : "rgba(56, 189, 248, 0.25)";
+            borderWidth = hayReplanteo ? 12 : 16;
             borderDash = hayReplanteo ? [8, 6] : undefined;
+            order = hayReplanteo ? 14 : 10;
           } else {
             // Puede haber varias versiones: cada una se identifica por su número.
             const sufijo = ["adicional_item", "ambos"].includes(curva.motivo) ? " c/adicionales" : "";
             const numero = curva.version ? ` ${curva.version}` : "";
             label = esVigente ? `Replanteo${numero}${sufijo} (vigente)` : `Replanteo${numero}${sufijo}`;
-            borderColor = esVigente ? "rgba(251, 146, 60, 0.90)" : "rgba(251, 146, 60, 0.25)";
-            borderWidth = esVigente ? 12 : 6;
+            // El vigente es la banda más ancha del gráfico.
+            borderColor = esVigente ? "rgba(251, 146, 60, 0.42)" : "rgba(251, 146, 60, 0.14)";
+            borderWidth = esVigente ? 20 : 8;
             borderDash = esVigente ? undefined : [8, 6];
+            order = esVigente ? 12 : 13;
           }
 
           planDatasets.push({
@@ -429,10 +441,12 @@ export default {
             borderColor,
             borderWidth,
             borderDash,
+            borderCapStyle: "round",
+            borderJoinStyle: "round",
             tension: 0.28,
             pointRadius: 0,
             fill: false,
-            order: 10,
+            order,
           });
         });
       } else {
