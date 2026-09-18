@@ -24,6 +24,28 @@
         prometió y no se puede modificar.
       </div>
 
+      <!-- Un replanteo parte de lo ya ejecutado: sin el avance cargado, el
+           corte queda en un mes viejo y lo que falta se reparte mal. -->
+      <div v-if="ctx.bloqueo" class="panel-bloqueo">
+        <div>
+          <strong>Falta cargar el avance de obra</strong>
+          <p>{{ ctx.bloqueo }}</p>
+        </div>
+        <button class="btn-ir" @click="$router.push({ name: 'AddAvanceObra', params: { obraId } })">
+          Cargar avance de obra
+        </button>
+      </div>
+
+      <div v-else-if="ctx.al_dia && !ctx.al_dia.certificacion_al_dia" class="panel-aviso">
+        <strong>La certificación no está al día.</strong>
+        <span v-if="ctx.al_dia.ultimo_certificado">
+          El último certificado llega al {{ fecha(ctx.al_dia.ultimo_certificado) }} y debería llegar
+          al {{ fecha(ctx.al_dia.mes_exigido) }}.
+        </span>
+        <span v-else>Todavía no hay certificados registrados en esta obra.</span>
+        Se puede replantear igual, pero la curva de certificación va a quedar corta contra la nueva.
+      </div>
+
       <!-- Resumen superior -->
       <section class="tarjetas">
         <div class="tarjeta">
@@ -244,7 +266,8 @@ export default {
   computed: {
     editando() { return this.version !== undefined && this.version !== null && this.version !== ""; },
     editable() { return !this.editando || this.ctx?.version?.editable !== false; },
-    soloLectura() { return !this.editable; },
+    bloqueado() { return !!this.ctx?.bloqueo; },
+    soloLectura() { return !this.editable || this.bloqueado; },
     admiteAdicionales() { return this.motivo === "adicional_item" || this.motivo === "ambos"; },
 
     fechaCorte() { return this.ctx?.fecha_corte || this.corteManual || ""; },
@@ -348,7 +371,8 @@ export default {
     itemsExcedidos() { return this.filas.filter((f) => this.quedaDe(f) < -0.009); },
     hayAlgoPlanificado() { return this.filas.some((f) => this.planificadoDe(f) > 0); },
     puedeGuardar() {
-      return this.fechaCorte && this.meses.length && this.hayAlgoPlanificado && !this.itemsExcedidos.length;
+      return !this.bloqueado && this.fechaCorte && this.meses.length
+        && this.hayAlgoPlanificado && !this.itemsExcedidos.length;
     },
     claseCierre() {
       if (this.itemsExcedidos.length) return "cierre-error";
@@ -566,6 +590,12 @@ export default {
 .estado { padding: 30px; text-align: center; color: #94a3b8; }
 .mensaje-error { background: #3b1219; border: 1px solid #7f1d1d; color: #fecaca; padding: 10px 14px; border-radius: 8px; margin: 12px 0; font-weight: 600; }
 .aviso-historia { background: rgba(148, 163, 184, 0.08); border: 1px solid #334155; color: #cbd5e1; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.88rem; }
+.panel-bloqueo { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: rgba(248, 113, 113, 0.08); border: 1px solid rgba(248, 113, 113, 0.45); color: #fecaca; padding: 12px 16px; border-radius: 10px; margin-bottom: 14px; }
+.panel-bloqueo strong { color: #fca5a5; }
+.panel-bloqueo p { margin: 4px 0 0; font-size: 0.88rem; line-height: 1.5; max-width: 80ch; }
+.btn-ir { background: #b91c1c; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.btn-ir:hover { filter: brightness(1.1); }
+.panel-aviso { background: rgba(251, 191, 36, 0.07); border: 1px solid rgba(251, 191, 36, 0.4); color: #fcd34d; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 0.88rem; line-height: 1.5; }
 
 .tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .tarjeta { background: #0b1120; border: 1px solid #1f2a44; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; }

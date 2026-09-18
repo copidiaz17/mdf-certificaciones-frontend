@@ -192,6 +192,7 @@ export default {
       financieroMontos: [],
       planificacionesCurvas: [],   // series de planificación: original y replanteo
       curvaLabels: [],
+      curvaLabelsHasta: [],   // fecha de cierre de cada punto del eje
       curvaPlanAcum: [],
       curvaCertAcum: [],
       curvaAvanceAcum: [],
@@ -224,22 +225,18 @@ export default {
         planA.push(lastKnownPlan);
       }
 
+      // La tabla llega hasta el último período YA CERRADO. Antes la fecha de
+      // cierre se intentaba deducir del texto de la etiqueta ("1ª q ene 26"),
+      // que no se podía interpretar, así que la tabla quedaba en una sola fila.
+      // Ahora el backend manda la fecha de cierre de cada punto.
       const hoy = new Date();
-      const hoyStart = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime();
-
-      const parseHasta = (label) => {
-        if (!label || label === "Inicio") return null;
-        const parts = String(label).split("→");
-        if (parts.length !== 2) return null;
-        const hastaStr = parts[1].trim();
-        const t = new Date(hastaStr).getTime();
-        return Number.isFinite(t) ? t : null;
-      };
+      const hoyISO = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+      const cierres = this.curvaLabelsHasta || [];
 
       let lastIdx = 0;
       for (let i = 1; i < labels.length; i++) {
-        const hastaTime = parseHasta(labels[i]);
-        if (hastaTime != null && hastaTime < hoyStart) lastIdx = i;
+        const cierre = cierres[i];
+        if (cierre && String(cierre).slice(0, 10) < hoyISO) lastIdx = i;
       }
 
       const L = labels.slice(0, lastIdx + 1);
@@ -288,6 +285,7 @@ export default {
       this.avanceItems = [];
       this.certsHistorial = [];
       this.curvaLabels = [];
+      this.curvaLabelsHasta = [];
       this.curvaPlanAcum = [];
       this.curvaCertAcum = [];
       this.curvaAvanceAcum = [];
@@ -352,10 +350,11 @@ export default {
       const obraId = this.route.params.obraId;
       const res = await api.get(`/obras/${obraId}/curva-avance`);
 
-      const { labels, planificado, certificado, avance, financiero, financieroMontos, certNumerosPorPeriodo, planificacionesCurvas } = res.data;
+      const { labels, labelsHasta, planificado, certificado, avance, financiero, financieroMontos, certNumerosPorPeriodo, planificacionesCurvas } = res.data;
 
       if (!labels || labels.length === 0) return;
 
+      this.curvaLabelsHasta = labelsHasta || [];
       this.certNumerosPorPeriodo = certNumerosPorPeriodo || [];
       this.financiero = financiero || [];
       this.financieroMontos = financieroMontos || [];
