@@ -415,8 +415,10 @@ export default {
             borderWidth = 16;
             borderDash = hayReplanteo ? [8, 6] : undefined;
           } else {
-            const sufijo = curva.motivo === "adicional_item" ? " c/adicionales" : "";
-            label = esVigente ? `Replanteo${sufijo} (vigente)` : `Replanteo${sufijo}`;
+            // Puede haber varias versiones: cada una se identifica por su número.
+            const sufijo = ["adicional_item", "ambos"].includes(curva.motivo) ? " c/adicionales" : "";
+            const numero = curva.version ? ` ${curva.version}` : "";
+            label = esVigente ? `Replanteo${numero}${sufijo} (vigente)` : `Replanteo${numero}${sufijo}`;
             borderColor = esVigente ? "rgba(251, 146, 60, 0.90)" : "rgba(251, 146, 60, 0.25)";
             borderWidth = esVigente ? 12 : 6;
             borderDash = esVigente ? undefined : [8, 6];

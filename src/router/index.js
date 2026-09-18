@@ -14,6 +14,7 @@ import AddCertificacionView from "../views/AddCertificacionView.vue";
 import CrearObraView from "../views/CrearObraView.vue";
 import GestionarCatalogoView from "../views/GestionarCatalogoView.vue";
 import AddPlanificacionView from "../views/AddPlanificacionView.vue";
+import ReplanteoView from "../views/ReplanteoView.vue";
 import AddAvanceObraView from "../views/AddAvanceObraView.vue";
 import CrearUsuarioView from "../views/CrearUsuarioView.vue";
 import EditCertificacionView from "../views/EditCertificacionView.vue";
@@ -96,6 +97,23 @@ const routes = [
         path: "obra/:obraId/planificacion",
         name: "ProyeccionObra",
         component: AddPlanificacionView, // 👈 usamos el import estático que ya tenés
+        props: true,
+        meta: { requiresAuth: true, requiresModification: true },
+      },
+
+      // El replanteo es una versión entera del plan: se carga y se edita en su
+      // propia pantalla, con todos sus meses en una grilla.
+      {
+        path: "obra/:obraId/replanteo",
+        name: "NuevoReplanteo",
+        component: ReplanteoView,
+        props: true,
+        meta: { requiresAuth: true, requiresModification: true },
+      },
+      {
+        path: "obra/:obraId/replanteo/:version/editar",
+        name: "EditarReplanteo",
+        component: ReplanteoView,
         props: true,
         meta: { requiresAuth: true, requiresModification: true },
       },
