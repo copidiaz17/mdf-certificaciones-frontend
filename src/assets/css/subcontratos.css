@@ -45,6 +45,11 @@
 .sc-chip-adicional { background: rgba(251, 146, 60, 0.18); color: #fdba74; }
 .sc-chip-propio { background: rgba(167, 139, 250, 0.18); color: #c4b5fd; }
 .sc-chip-exced { background: rgba(251, 146, 60, 0.18); color: #fdba74; }
+/* Las dos clases de adicional, cada una con su color. */
+.sc-chip-de_mas { background: rgba(251, 146, 60, 0.18); color: #fdba74; }
+.sc-chip-nuevo { background: rgba(56, 189, 248, 0.16); color: #7dd3fc; }
+.sc-chip-contrato { background: rgba(148, 163, 184, 0.12); color: #94a3b8; }
+.sc-origen { display: block; font-size: 0.72rem; color: #94a3b8; margin-top: 2px; }
 .sc-chip-atraso { background: rgba(248, 113, 113, 0.16); color: #fca5a5; }
 .sc-chip-adelanto { background: rgba(74, 222, 128, 0.15); color: #86efac; }
 
@@ -57,6 +62,7 @@
 .sc-tabla .desc { white-space: normal; min-width: 220px; max-width: 380px; }
 .sc-tabla .fila-seccion td { background: #0f172a; color: #fdba74; font-weight: 800; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; }
 .sc-tabla .fila-exced td { background: #24150a; }
+.sc-tabla .fila-nuevo td { background: #07192a; }
 .sc-tabla .fila-anulada td { color: #64748b; text-decoration: line-through; }
 .sc-tabla tr.clickable { cursor: pointer; }
 .sc-tabla tr.clickable:hover td { background: #111a33; }

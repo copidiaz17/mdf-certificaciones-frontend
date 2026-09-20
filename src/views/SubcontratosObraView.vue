@@ -43,23 +43,20 @@
         <div class="avance">
           <div class="avance-texto">
             <strong>{{ pct(s.totales.avance) }}</strong> ejecutado
-            <span v-if="s.totales.planificado_hoy !== null" class="sc-muted">· plan a hoy {{ pct(s.totales.planificado_hoy) }}</span>
-            <span v-if="s.totales.desvio !== null" class="sc-chip" :class="s.totales.desvio < -0.5 ? 'sc-chip-atraso' : 'sc-chip-adelanto'">
-              {{ s.totales.desvio >= 0 ? "+" : "" }}{{ num(s.totales.desvio) }} pts
-            </span>
+            <span class="sc-muted">de lo acordado</span>
           </div>
           <div class="sc-barra">
             <div class="sc-barra-relleno" :style="{ width: Math.min(100, s.totales.avance) + '%' }"></div>
-            <div v-if="s.totales.planificado_hoy !== null" class="sc-barra-marca" :style="{ left: Math.min(100, s.totales.planificado_hoy) + '%' }" title="Plan a hoy"></div>
           </div>
         </div>
 
         <dl class="numeros">
-          <div><dt>Contrato</dt><dd>{{ monto(s.totales.contrato) }}</dd></div>
+          <div><dt>Acordado</dt><dd>{{ monto(s.totales.contrato) }}</dd></div>
           <div><dt>Certificado</dt><dd>{{ monto(s.totales.certificado) }}</dd></div>
           <div><dt>Pendiente</dt><dd>{{ monto(s.totales.pendiente) }}</dd></div>
           <div><dt>Neto pagado</dt><dd>{{ monto(s.totales.neto_pagado) }}</dd></div>
-          <div v-if="s.totales.excedentes > 0" class="exced"><dt>Excedentes</dt><dd>{{ monto(s.totales.excedentes) }}</dd></div>
+          <div v-if="s.totales.de_mas > 0" class="exced"><dt>Adic. de más</dt><dd>{{ monto(s.totales.de_mas) }}</dd></div>
+          <div v-if="s.totales.nuevo > 0" class="exced"><dt>Adic. ítem nuevo</dt><dd>{{ monto(s.totales.nuevo) }}</dd></div>
         </dl>
 
         <p class="pie sc-muted">

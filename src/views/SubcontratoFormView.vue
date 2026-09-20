@@ -6,7 +6,10 @@
         <h2 class="sc-titulo">{{ editando ? `Editar OC · ${form.subcontratista}` : "Nueva orden de compra" }}</h2>
         <p class="sc-bajada">
           Los ítems salen del pliego de la obra, pero con la cantidad y el precio acordados con el
-          subcontratista. También se pueden sumar trabajos que el pliego no tiene.
+          subcontratista. También se pueden sumar trabajos que el pliego no tiene. Los adicionales
+          dicen de qué clase son: más cantidad de un rubro que ya estaba («cargado de más») o un
+          rubro que no existía («ítem nuevo»). Lo que se certifique por encima de la OC se registra
+          solo, al certificar.
         </p>
       </div>
       <button class="sc-btn sc-btn-sec" @click="volver">← Volver</button>
@@ -103,8 +106,18 @@
                 <td class="desc">
                   <input v-if="!it.pliego_item_id" v-model="it.descripcion" class="sc-input ancho" placeholder="Descripción *" />
                   <span v-else>{{ it.descripcion }}</span>
-                  <span v-if="it.origen === 'adicional'" class="sc-chip sc-chip-adicional">adicional</span>
-                  <span v-else-if="!it.pliego_item_id" class="sc-chip sc-chip-propio">fuera del pliego</span>
+                  <span v-if="it.origen !== 'adicional' && !it.pliego_item_id" class="sc-chip sc-chip-propio">fuera del pliego</span>
+                  <div v-if="it.origen === 'adicional'" class="adicional-tipo">
+                    <select v-model="it.tipo_adicional" class="sc-input" @change="it.tipo_adicional === 'nuevo' && (it.item_origen_id = null)">
+                      <option value="nuevo">Adicional · ítem nuevo</option>
+                      <option value="de_mas" :disabled="!rubrosGuardados.length">Adicional · cargado de más</option>
+                    </select>
+                    <select v-if="it.tipo_adicional === 'de_mas'" v-model="it.item_origen_id" class="sc-input">
+                      <option :value="null" disabled>¿Qué rubro agranda?</option>
+                      <option v-for="r in rubrosGuardados" :key="r.id" :value="r.id">{{ r.numero ? r.numero + " · " : "" }}{{ r.descripcion }}</option>
+                    </select>
+                    <span v-if="it.creado_en_certificado_id" class="sc-muted nota">nació en un certificado</span>
+                  </div>
                 </td>
                 <td>
                   <input v-if="!it.pliego_item_id" v-model="it.unidad" class="sc-input chico" />
@@ -118,8 +131,9 @@
             </tbody>
             <tfoot v-if="items.length">
               <tr><td colspan="5" class="num">Contrato original</td><td class="num">{{ monto(totalOriginal) }}</td><td></td></tr>
-              <tr v-if="totalAdicionales"><td colspan="5" class="num">Adicionales</td><td class="num">{{ monto(totalAdicionales) }}</td><td></td></tr>
-              <tr><td colspan="5" class="num">Total de la orden de compra</td><td class="num">{{ monto(totalOriginal + totalAdicionales) }}</td><td></td></tr>
+              <tr v-if="totalDe_mas"><td colspan="5" class="num">Adicionales · cargado de más</td><td class="num">{{ monto(totalDe_mas) }}</td><td></td></tr>
+              <tr v-if="totalNuevo"><td colspan="5" class="num">Adicionales · ítem nuevo</td><td class="num">{{ monto(totalNuevo) }}</td><td></td></tr>
+              <tr><td colspan="5" class="num">Total de la orden de compra</td><td class="num">{{ monto(totalOriginal + totalDe_mas + totalNuevo) }}</td><td></td></tr>
             </tfoot>
           </table>
         </div>
@@ -169,7 +183,10 @@ export default {
       return this.pliego.filter((p) => String(p.numeroItem).toLowerCase().includes(q) || String(p.descripcionItem).toLowerCase().includes(q));
     },
     totalOriginal() { return this.items.filter((i) => i.origen !== "adicional").reduce((s, i) => s + this.totalDe(i), 0); },
-    totalAdicionales() { return this.items.filter((i) => i.origen === "adicional").reduce((s, i) => s + this.totalDe(i), 0); },
+    totalDe_mas() { return this.items.filter((i) => i.origen === "adicional" && i.tipo_adicional === "de_mas").reduce((s, i) => s + this.totalDe(i), 0); },
+    totalNuevo() { return this.items.filter((i) => i.origen === "adicional" && i.tipo_adicional !== "de_mas").reduce((s, i) => s + this.totalDe(i), 0); },
+    // Un adicional "de más" agranda un rubro que ya está guardado en la OC.
+    rubrosGuardados() { return this.items.filter((i) => i.id && i.origen !== "adicional"); },
   },
   async mounted() {
     try {
@@ -207,7 +224,10 @@ export default {
       });
     },
     agregarPropio(origen) {
-      this.items.push({ _k: ++clave, pliego_item_id: null, numero: "", descripcion: "", unidad: "", cantidad: 1, precio_unitario: 0, origen });
+      this.items.push({
+        _k: ++clave, pliego_item_id: null, numero: "", descripcion: "", unidad: "", cantidad: 1, precio_unitario: 0, origen,
+        tipo_adicional: origen === "adicional" ? "nuevo" : null, item_origen_id: null,
+      });
     },
     quitar(i) { this.items.splice(i, 1); },
     volver() {
@@ -218,6 +238,8 @@ export default {
       this.error = "";
       if (!this.form.subcontratista.trim()) { this.error = "Falta el nombre del subcontratista."; return; }
       if (!this.items.length) { this.error = "La orden de compra tiene que tener al menos un ítem."; return; }
+      const sinRubro = this.items.find((i) => i.origen === "adicional" && i.tipo_adicional === "de_mas" && !i.item_origen_id);
+      if (sinRubro) { this.error = `El adicional "${sinRubro.descripcion || "sin descripción"}" es de más: elegí qué rubro agranda.`; return; }
       const sinPrecio = this.items.find((i) => !(Number(i.precio_unitario) > 0));
       if (sinPrecio && !window.confirm(`"${sinPrecio.descripcion || "Un ítem"}" tiene precio 0. ¿Guardar igual?`)) return;
 
@@ -227,7 +249,7 @@ export default {
           ...this.form,
           fecha_contrato: this.form.fecha_contrato || null,
           fecha_inicio: this.form.fecha_inicio || null,
-          items: this.items.map(({ _k, ...it }) => it),
+          items: this.items.map(({ _k, creado_en_certificado_id, ...it }) => it),
         };
         if (this.editando) {
           await api.put(`/obras/${this.obraId}/subcontratos/${this.subId}`, cuerpo);
@@ -258,5 +280,8 @@ export default {
 .ancho { width: 100%; min-width: 220px; }
 .ancho-precio { width: 120px; }
 .final { justify-content: flex-end; }
+.adicional-tipo { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.adicional-tipo .sc-input { font-size: 0.78rem; padding: 4px 8px; max-width: 280px; }
+.nota { font-size: 0.72rem; }
 @media (max-width: 700px) { .campo-ancho { grid-column: span 1; } }
 </style>

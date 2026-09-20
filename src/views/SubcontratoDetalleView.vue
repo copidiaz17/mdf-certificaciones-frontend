@@ -22,19 +22,18 @@
           <button class="sc-btn sc-btn-sec" @click="$router.push({ name: 'SubcontratosObra', params: { obraId } })">← Subcontratistas</button>
           <template v-if="authStore.canModify">
             <button class="sc-btn sc-btn-sec" @click="ir('EditarSubcontrato')">Orden de compra</button>
-            <button class="sc-btn sc-btn-sec" @click="ir('PlanSubcontrato')">{{ tienePlan ? "Plan de trabajo" : "Cargar plan de trabajo" }}</button>
             <button v-if="sub.estado !== 'anulado'" class="sc-btn sc-btn-primario" @click="ir('NuevoCertificadoSub')">➕ Nuevo certificado</button>
           </template>
         </div>
       </header>
 
-      <!-- Estadísticas -->
+      <!-- Estadísticas: sin plan de trabajo, el avance se mide contra lo acordado -->
       <section class="sc-tiles">
         <div class="sc-tile">
           <span class="sc-tile-label">Acordado</span>
           <span class="sc-tile-valor">{{ monto(t.contrato) }}</span>
-          <span class="sc-tile-sub" v-if="t.adicionales">{{ monto(t.contrato_original) }} + {{ monto(t.adicionales) }} de adicionales</span>
-          <span class="sc-tile-sub" v-else>{{ items.length }} ítems</span>
+          <span class="sc-tile-sub" v-if="t.de_mas || t.nuevo">{{ monto(t.original) }} de la OC + {{ monto(t.de_mas + t.nuevo) }} de adicionales</span>
+          <span class="sc-tile-sub" v-else>{{ items.length }} ítems de la OC</span>
         </div>
         <div class="sc-tile">
           <span class="sc-tile-label">Avanzado</span>
@@ -44,33 +43,29 @@
         <div class="sc-tile">
           <span class="sc-tile-label">Queda por hacer</span>
           <span class="sc-tile-valor">{{ monto(t.pendiente) }}</span>
-          <span class="sc-tile-sub">{{ pct(Math.max(0, 100 - t.avance)) }} del contrato</span>
+          <span class="sc-tile-sub">{{ pct(Math.max(0, 100 - t.avance)) }} de lo acordado</span>
         </div>
-        <div class="sc-tile" :class="{ 'sc-tile-alerta': t.excedentes > 0 }">
-          <span class="sc-tile-label">Hecho de más</span>
-          <span class="sc-tile-valor">{{ monto(t.excedentes) }}</span>
-          <span class="sc-tile-sub">{{ t.items_con_excedente }} ítem(s) por encima de lo contratado</span>
+        <div class="sc-tile" :class="{ 'sc-tile-alerta': t.de_mas > 0 }">
+          <span class="sc-tile-label">Adicional · cargado de más</span>
+          <span class="sc-tile-valor">{{ monto(t.de_mas) }}</span>
+          <span class="sc-tile-sub">{{ t.renglones_de_mas }} rubro(s) por encima de la OC</span>
+        </div>
+        <div class="sc-tile" :class="{ 'sc-tile-alerta': t.nuevo > 0 }">
+          <span class="sc-tile-label">Adicional · ítem nuevo</span>
+          <span class="sc-tile-valor">{{ monto(t.nuevo) }}</span>
+          <span class="sc-tile-sub">{{ t.renglones_nuevos }} rubro(s) que no estaban</span>
         </div>
         <div class="sc-tile">
           <span class="sc-tile-label">Neto pagado</span>
           <span class="sc-tile-valor">{{ monto(t.neto_pagado) }}</span>
           <span class="sc-tile-sub">{{ monto(t.descuentos) }} en descuentos</span>
         </div>
-        <div class="sc-tile" v-if="t.planificado_hoy !== null" :class="{ 'sc-tile-alerta': t.desvio < -0.5 }">
-          <span class="sc-tile-label">Contra el plan</span>
-          <span class="sc-tile-valor">{{ t.desvio >= 0 ? "+" : "" }}{{ num(t.desvio) }} pts</span>
-          <span class="sc-tile-sub">plan a hoy {{ pct(t.planificado_hoy) }}</span>
-        </div>
       </section>
 
-      <!-- Curva del sub -->
+      <!-- Avance por certificado -->
       <section class="sc-panel" v-if="resumen.curva.length">
-        <h3 class="sc-panel-titulo">Plan contra certificado</h3>
+        <h3 class="sc-panel-titulo">Avance por certificado</h3>
         <div class="grafico"><canvas ref="grafico"></canvas></div>
-      </section>
-      <section class="sc-panel sc-vacio" v-else>
-        Sin plan de trabajo: el avance se compara solo contra lo contratado.
-        <button v-if="authStore.canModify" class="sc-btn sc-btn-sec sc-btn-mini" @click="ir('PlanSubcontrato')">Cargar plan</button>
       </section>
 
       <!-- Por ítem -->
@@ -82,30 +77,32 @@
               <tr>
                 <th>Ítem</th><th>Descripción</th><th>Un.</th>
                 <th class="num">Acordado</th><th class="num">Certificado</th><th class="num">Queda</th>
-                <th class="num">De más</th><th>Avance</th><th class="num" v-if="t.planificado_hoy !== null">Plan a hoy</th>
+                <th class="num">Importe acordado</th><th>Avance</th>
               </tr>
             </thead>
             <tbody>
               <template v-for="seccion in secciones" :key="seccion.nombre">
-                <tr v-if="seccion.items.length && secciones.length > 1" class="fila-seccion"><td :colspan="9">{{ seccion.nombre }}</td></tr>
-                <tr v-for="it in seccion.items" :key="it.id" :class="{ 'fila-exced': it.excedente > 0 }">
+                <tr v-if="seccion.items.length" class="fila-seccion"><td :colspan="8">{{ seccion.nombre }}</td></tr>
+                <tr v-for="it in seccion.items" :key="it.id" :class="{ 'fila-exced': it.clase === 'de_mas', 'fila-nuevo': it.clase === 'nuevo' }">
                   <td>{{ it.numero }}</td>
-                  <td class="desc">{{ it.descripcion }}</td>
+                  <td class="desc">
+                    {{ it.descripcion }}
+                    <span v-if="it.clase !== 'contrato'" class="sc-chip" :class="`sc-chip-${it.clase}`">{{ it.etiqueta }}</span>
+                    <span v-if="it.clase === 'de_mas' && it.rubro_origen" class="sc-origen">
+                      {{ it.virtual ? "certificado por encima de lo contratado en" : "agranda" }} «{{ it.rubro_origen }}»
+                    </span>
+                  </td>
                   <td>{{ it.unidad }}</td>
                   <td class="num">{{ num(it.contratado, 4) }}</td>
                   <td class="num">{{ num(it.certificado, 4) }}</td>
                   <td class="num">{{ num(it.pendiente, 4) }}</td>
-                  <td class="num">
-                    <span v-if="it.excedente > 0" class="sc-chip sc-chip-exced">{{ num(it.excedente, 4) }} · {{ monto(it.excedente_importe) }}</span>
-                    <span v-else class="sc-muted">—</span>
-                  </td>
+                  <td class="num">{{ monto(it.total) }}</td>
                   <td>
                     <div class="barra-celda">
                       <div class="sc-barra"><div class="sc-barra-relleno" :style="{ width: it.avance + '%' }"></div></div>
                       <span>{{ pct(it.avance) }}</span>
                     </div>
                   </td>
-                  <td class="num" v-if="t.planificado_hoy !== null" :class="it.desvio < -0.0001 ? 'sc-malo' : ''">{{ num(it.planificado_hoy, 4) }}</td>
                 </tr>
               </template>
             </tbody>
@@ -149,7 +146,7 @@ import api from "../config/axios.Config.js";
 import Chart from "chart.js/auto";
 import { useAuthStore } from "../stores/authStore";
 import { useToast } from "vue-toastification";
-import { monto, num, pct, fecha, periodo, ESTADOS } from "../utils/subcontratos.js";
+import { monto, num, pct, fecha, periodo, ESTADOS, CLASES } from "../utils/subcontratos.js";
 
 export default {
   name: "SubcontratoDetalleView",
@@ -159,16 +156,19 @@ export default {
     return {
       cargando: true, error: "", obraNombre: "",
       sub: {}, items: [], resumen: { totales: {}, items: [], curva: [] },
-      certificados: [], ultimoId: null, tienePlan: false, grafico: null, ESTADOS,
+      certificados: [], ultimoId: null, grafico: null, ESTADOS,
     };
   },
   computed: {
     t() { return this.resumen.totales || {}; },
     secciones() {
+      // Lo de más calculado (renglón virtual) va junto a los adicionales, no
+      // debajo de su rubro: así se ve todo lo extra en un solo lugar.
       const del = this.resumen.items;
       return [
-        { nombre: "Contrato", items: del.filter((i) => i.origen !== "adicional") },
-        { nombre: "Adicionales", items: del.filter((i) => i.origen === "adicional") },
+        { nombre: "Contrato", items: del.filter((i) => i.clase === "contrato") },
+        { nombre: CLASES.de_mas, items: del.filter((i) => i.clase === "de_mas") },
+        { nombre: CLASES.nuevo, items: del.filter((i) => i.clase === "nuevo") },
       ].filter((s) => s.items.length);
     },
   },
@@ -186,7 +186,7 @@ export default {
         this.obraNombre = obra.data?.nombre || "";
         Object.assign(this, {
           sub: det.data.subcontrato, items: det.data.items, resumen: det.data.resumen,
-          certificados: det.data.certificados, ultimoId: det.data.ultimo_certificado_id, tienePlan: det.data.tiene_plan,
+          certificados: det.data.certificados, ultimoId: det.data.ultimo_certificado_id,
         });
       } catch (e) {
         this.error = e.response?.data?.message || "No se pudo cargar el subcontrato.";
@@ -203,12 +203,10 @@ export default {
       this.grafico = new Chart(this.$refs.grafico, {
         type: "line",
         data: {
-          labels: c.map((p) => `${fecha(p.desde).slice(0, 5)}–${fecha(p.hasta).slice(0, 5)}`),
+          labels: c.map((p) => `N° ${p.numero} · ${fecha(p.hasta).slice(0, 5)}`),
           datasets: [
-            // El plan va como banda ancha y translúcida, detrás; lo certificado,
-            // fino y por encima: el mismo lenguaje que la curva de la obra.
-            { label: "Plan del subcontratista", data: c.map((p) => p.planificado), borderColor: "rgba(167, 139, 250, 0.35)", borderWidth: 16, pointRadius: 0, tension: 0.25, order: 10 },
-            { label: "Certificado", data: c.map((p) => p.certificado), borderColor: "rgba(34, 197, 94, 1)", backgroundColor: "rgba(34, 197, 94, 1)", borderWidth: 4, pointRadius: 4, tension: 0.2, order: 1, spanGaps: false },
+            // Avance acumulado sobre lo acordado a la fecha, después de cada certificado.
+            { label: "Avance acumulado", data: c.map((p) => p.avance), borderColor: "rgba(34, 197, 94, 1)", backgroundColor: "rgba(34, 197, 94, 0.12)", fill: true, borderWidth: 3, pointRadius: 4, tension: 0.2 },
           ],
         },
         options: {
