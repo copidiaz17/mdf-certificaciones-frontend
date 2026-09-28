@@ -19,6 +19,7 @@ import SubcontratosObraView from "../views/SubcontratosObraView.vue";
 import SubcontratoFormView from "../views/SubcontratoFormView.vue";
 import SubcontratoDetalleView from "../views/SubcontratoDetalleView.vue";
 import SubcontratoCertificadoView from "../views/SubcontratoCertificadoView.vue";
+import SubcontratoActualizacionView from "../views/SubcontratoActualizacionView.vue";
 import AddAvanceObraView from "../views/AddAvanceObraView.vue";
 import CrearUsuarioView from "../views/CrearUsuarioView.vue";
 import EditCertificacionView from "../views/EditCertificacionView.vue";
@@ -129,6 +130,9 @@ const routes = [
       { path: "obra/:obraId/subcontratos/:subId/editar", name: "EditarSubcontrato", component: SubcontratoFormView, props: true, meta: { requiresAuth: true, requiresModification: true } },
       { path: "obra/:obraId/subcontratos/:subId/certificados/nuevo", name: "NuevoCertificadoSub", component: SubcontratoCertificadoView, props: true, meta: { requiresAuth: true, requiresModification: true } },
       { path: "obra/:obraId/subcontratos/:subId/certificados/:certId", name: "CertificadoSub", component: SubcontratoCertificadoView, props: true, meta: { requiresAuth: true } },
+      // Actualización de precios del contrato: desde una fecha, los certificados van con los precios nuevos.
+      { path: "obra/:obraId/subcontratos/:subId/actualizaciones/nueva", name: "NuevaActualizacionSub", component: SubcontratoActualizacionView, props: true, meta: { requiresAuth: true, requiresModification: true } },
+      { path: "obra/:obraId/subcontratos/:subId/actualizaciones/:actId", name: "ActualizacionSub", component: SubcontratoActualizacionView, props: true, meta: { requiresAuth: true } },
 
       {
         path: "obra/:obraId/pliego", // 👈 sin "/", ahora es /dashboard/obra/:obraId/pliego

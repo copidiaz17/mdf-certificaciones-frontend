@@ -34,6 +34,9 @@
           <span class="sc-tile-valor">{{ monto(t.contrato) }}</span>
           <span class="sc-tile-sub" v-if="t.de_mas || t.nuevo">{{ monto(t.original) }} de la OC + {{ monto(t.de_mas + t.nuevo) }} de adicionales</span>
           <span class="sc-tile-sub" v-else>{{ items.length }} ítems de la OC</span>
+          <span class="sc-tile-sub" v-if="t.original_oc && Math.abs(t.original_oc - t.original) > 0.005">
+            a precios actualizados (la OC original era {{ monto(t.original_oc) }})
+          </span>
         </div>
         <div class="sc-tile">
           <span class="sc-tile-label">Avanzado</span>
@@ -110,6 +113,37 @@
         </div>
       </section>
 
+      <!-- Actualizaciones de precio del contrato -->
+      <section class="sc-panel">
+        <h3 class="sc-panel-titulo">
+          Actualizaciones de precio
+          <button v-if="authStore.canModify && sub.estado !== 'anulado'" class="sc-btn sc-btn-sec sc-btn-mini" @click="ir('NuevaActualizacionSub')">
+            + Actualización de precios
+          </button>
+        </h3>
+        <div v-if="!actualizaciones.length" class="sc-vacio">
+          Los certificados van con los precios de la OC. Cuando cambien, cargá una actualización: rige desde
+          una fecha y no toca lo ya certificado.
+        </div>
+        <div v-else class="sc-tabla-wrap">
+          <table class="sc-tabla">
+            <thead><tr><th>N°</th><th>Rigen desde</th><th>Motivo</th><th>Qué cambia</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="a in actualizaciones" :key="a.id" class="clickable" @click="verActualizacion(a)">
+                <td>{{ a.numero }}</td>
+                <td>{{ fecha(a.fecha_vigencia) }}</td>
+                <td class="desc">{{ a.motivo || "—" }}</td>
+                <td class="desc">{{ queCambia(a) }}</td>
+                <td>
+                  <span v-if="!a.editable" class="sc-chip sc-chip-finalizado">en uso desde el certificado N° {{ a.usada_por_certificado }}</span>
+                  <span v-else class="sc-chip sc-chip-vigente">se puede corregir</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <!-- Certificados -->
       <section class="sc-panel">
         <h3 class="sc-panel-titulo">Certificados</h3>
@@ -156,7 +190,7 @@ export default {
     return {
       cargando: true, error: "", obraNombre: "",
       sub: {}, items: [], resumen: { totales: {}, items: [], curva: [] },
-      certificados: [], ultimoId: null, grafico: null, ESTADOS,
+      certificados: [], actualizaciones: [], ultimoId: null, grafico: null, ESTADOS,
     };
   },
   computed: {
@@ -187,6 +221,7 @@ export default {
         Object.assign(this, {
           sub: det.data.subcontrato, items: det.data.items, resumen: det.data.resumen,
           certificados: det.data.certificados, ultimoId: det.data.ultimo_certificado_id,
+          actualizaciones: det.data.actualizaciones || [],
         });
       } catch (e) {
         this.error = e.response?.data?.message || "No se pudo cargar el subcontrato.";
@@ -218,6 +253,22 @@ export default {
       });
     },
     ir(nombre) { this.$router.push({ name: nombre, params: { obraId: this.obraId, subId: this.subId } }); },
+    verActualizacion(a) {
+      this.$router.push({ name: "ActualizacionSub", params: { obraId: this.obraId, subId: this.subId, actId: a.id } });
+    },
+    // "Revoque: $1.000 → $1.200" si son pocos; si no, cuántos y cuánto suben.
+    queCambia(a) {
+      if (a.items.length <= 2) {
+        return a.items.map((i) => `${i.descripcion}: ${monto(i.precio_anterior)} → ${monto(i.precio)}`).join(" · ");
+      }
+      const vars = a.items.filter((i) => i.precio_anterior).map((i) => ((i.precio - i.precio_anterior) / i.precio_anterior) * 100);
+      const min = Math.min(...vars), max = Math.max(...vars);
+      const signo = (v) => (v > 0 ? "+" : "") + pct(v);
+      if (!vars.length) return `${a.items.length} ítems`;
+      return Math.abs(max - min) < 0.01
+        ? `${a.items.length} ítems, ${signo(min)}`
+        : `${a.items.length} ítems, entre ${signo(min)} y ${signo(max)}`;
+    },
     verCert(c) { this.$router.push({ name: "CertificadoSub", params: { obraId: this.obraId, subId: this.subId, certId: c.id } }); },
     async borrar() {
       if (!window.confirm(`¿Borrar el subcontrato de ${this.sub.subcontratista}? No tiene certificados, así que no se pierde nada pagado.`)) return;

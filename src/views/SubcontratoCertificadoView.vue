@@ -30,6 +30,18 @@
         <div class="sc-campo obs"><label>Observaciones</label><input v-model="cert.observaciones" class="sc-input" :disabled="!editable" /></div>
       </section>
 
+      <p v-if="actualizaciones.length" class="nota-precios">
+        <template v-if="rige">
+          Va con los precios de la <strong>actualización N° {{ rige.numero }}</strong>, que rigen desde el
+          {{ fecha(rige.fecha_vigencia) }}<span v-if="rige.motivo"> ({{ rige.motivo }})</span>: cada certificado
+          toma los precios vigentes al fin de su período.
+        </template>
+        <template v-else>
+          Va con los precios originales de la OC: su período termina antes de la primera actualización
+          ({{ fecha(actualizaciones[0].fecha_vigencia) }}).
+        </template>
+      </p>
+
       <p v-if="!editable && !cert.anulado" class="sc-aviso no-imprimir">
         Solo se corrige el último certificado: cambiar uno anterior alteraría el "anterior" de los
         siguientes, que ya se pagaron.
@@ -63,8 +75,8 @@
               </td>
               <td>{{ f.unidad }}</td>
               <td class="num">{{ num(f.contratado, 4) }}</td>
-              <td class="num">{{ monto(f.precio) }}</td>
-              <td class="num">{{ monto(f.total) }}</td>
+              <td class="num">{{ monto(precioDe(f)) }}</td>
+              <td class="num">{{ monto(totalDe(f)) }}</td>
               <td class="num">{{ num(f.anterior.cantidad, 4) }}</td>
               <td class="num actual">
                 <input v-if="editable" type="number" min="0" step="0.01" class="sc-celda"
@@ -94,8 +106,8 @@
               </td>
               <td>{{ f.unidad }}</td>
               <td class="num">{{ num(f.contratado, 4) }}</td>
-              <td class="num">{{ monto(f.precio) }}</td>
-              <td class="num">{{ monto(f.total) }}</td>
+              <td class="num">{{ monto(precioDe(f)) }}</td>
+              <td class="num">{{ monto(totalDe(f)) }}</td>
               <td class="num">{{ num(f.anterior.cantidad, 4) }}</td>
               <td class="num actual">
                 <input v-if="editable" type="number" min="0" step="0.01" class="sc-celda"
@@ -122,7 +134,7 @@
               </td>
               <td>{{ v.f.unidad }}</td>
               <td class="num">{{ num(v.d.cantidad.acumulado, 4) }}</td>
-              <td class="num">{{ monto(v.f.precio_vigente) }}</td>
+              <td class="num">{{ monto(vigenteDe(v.f)) }}</td>
               <td class="num">{{ monto(v.d.total) }}</td>
               <td class="num">{{ num(v.d.cantidad.anterior, 4) }}</td>
               <td class="num actual">{{ num(v.d.cantidad.actual, 4) }}</td>
@@ -233,7 +245,7 @@
 <script>
 import api from "../config/axios.Config.js";
 import { useToast } from "vue-toastification";
-import { monto, num, pct, fecha, r2, r4, desglosar, CLASES, TIPOS_DESCUENTO } from "../utils/subcontratos.js";
+import { monto, num, pct, fecha, r2, r4, desglosar, precioAl, CLASES, TIPOS_DESCUENTO } from "../utils/subcontratos.js";
 
 let claveNueva = 0;
 
@@ -248,6 +260,8 @@ export default {
       actual: {},          // cantidad actual por ítem, lo único que se carga
       nuevos: [],          // rubros que no están en la OC, cargados acá
       descuentos: [],
+      actualizaciones: [], // las de precio del contrato, para saber con cuál va
+      hastaOriginal: "",   // el fin del período tal como vino: su precio es el congelado
       CLASES, TIPOS_DESCUENTO,
     };
   },
@@ -258,12 +272,18 @@ export default {
     deMasVirtuales() {
       return this.filas.map((f) => ({ f, d: this.c(f).deMas })).filter((v) => v.d);
     },
+    // La actualización cuyos precios rigen al fin del período.
+    rige() {
+      let r = null;
+      for (const a of this.actualizaciones) if (this.cert.hasta && a.fecha_vigencia <= this.cert.hasta) r = a;
+      return r;
+    },
     totalDescuentos() { return r2(this.descuentos.reduce((s, d) => s + Number(d.importe || 0), 0)); },
     totales() {
       let contrato = 0, anterior = 0, actual = 0, pendiente = 0;
       for (const f of this.filas) {
         const { principal, deMas } = this.c(f);
-        contrato += f.total + (deMas ? deMas.total : 0);
+        contrato += this.totalDe(f) + (deMas ? deMas.total : 0);
         anterior += principal.importe.anterior + (deMas ? deMas.importe.anterior : 0);
         actual += principal.importe.actual + (deMas ? deMas.importe.actual : 0);
         pendiente += principal.importe.pendiente;
@@ -302,6 +322,8 @@ export default {
       this.cert = { ...data.certificado, fecha: data.certificado.fecha || "", observaciones: data.certificado.observaciones || "" };
       this.filas = data.filas;
       this.editable = data.editable;
+      this.actualizaciones = data.actualizaciones || [];
+      this.hastaOriginal = data.certificado.hasta;
       this.descuentos = data.descuentos.map((d) => ({ ...d }));
       const actual = {};
       for (const f of data.filas) if (f.actual.cantidad) actual[f.id] = f.actual.cantidad;
@@ -319,16 +341,29 @@ export default {
       const n = Number(texto);
       this.actual[id] = Number.isFinite(n) && n >= 0 ? n : 0;
     },
+    // El precio que rige al fin del período. Si se cambia la fecha "hasta",
+    // puede caer bajo otra actualización: por eso se toma de la historia del
+    // ítem y no del precio que vino con la planilla.
+    vigenteDe(f) { return f.precios ? precioAl(f.precios, this.cert.hasta) : f.precio_vigente; },
+    // El de ESTE certificado: el congelado, salvo que el nuevo fin del período
+    // caiga bajo otros precios (el servidor hace lo mismo al corregir).
+    precioDe(f) {
+      if (!f.precios) return f.precio;
+      const ahora = precioAl(f.precios, this.cert.hasta);
+      return ahora !== precioAl(f.precios, this.hastaOriginal) ? ahora : f.precio;
+    },
+    totalDe(f) { return r2(Number(f.contratado || 0) * this.vigenteDe(f)); },
     // Cada fila se desdobla igual que en el servidor: lo acordado y lo de más.
     c(f) {
       const qAct = Number(this.actual[f.id] || 0);
       const { principal, deMas } = desglosar({
-        contratado: f.contratado, precioVigente: f.precio_vigente,
+        contratado: f.contratado, precioVigente: this.vigenteDe(f),
         ant: { cantidad: f.anterior.cantidad, importe: f.anterior.importe },
-        act: { cantidad: qAct, precio: f.precio },
+        act: { cantidad: qAct, precio: this.precioDe(f) },
       });
       const acum = principal.importe.acumulado + (deMas ? deMas.importe.acumulado : 0);
-      return { principal, deMas, pctAcum: f.total ? r2((acum / f.total) * 100) : 0 };
+      const total = this.totalDe(f);
+      return { principal, deMas, pctAcum: total ? r2((acum / total) * 100) : 0 };
     },
     totalNuevo(n) { return r2(Number(n.cantidad || 0) * Number(n.precio_unitario || 0)); },
     agregarNuevo() {
@@ -413,6 +448,10 @@ export default {
 <style scoped>
 .periodo { display: grid; grid-template-columns: repeat(3, minmax(140px, 180px)) 1fr; gap: 12px; }
 .tabla-planilla { max-height: 60vh; }
+.nota-precios {
+  margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.84rem; line-height: 1.5;
+  background: rgba(167, 139, 250, 0.08); border: 1px solid rgba(167, 139, 250, 0.35); color: #ddd6fe;
+}
 .tabla-planilla th.grupo { text-align: center; border-left: 1px solid #334155; }
 .tabla-planilla .actual { background: rgba(167, 139, 250, 0.06); }
 .chico { width: 80px; font-size: 0.8rem; }

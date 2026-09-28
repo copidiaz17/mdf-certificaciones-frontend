@@ -60,5 +60,22 @@ export function desglosar({ contratado, precioVigente, ant, act }) {
   };
 }
 
+/**
+ * El precio de un ítem a una fecha, a partir de su historia de precios (la que
+ * manda el servidor: el de la OC y uno por cada actualización que lo tocó).
+ * Es el mismo criterio que el servidor (utils/subcontratos.js → precioEn): rige
+ * la última actualización vigente ese día. `excluir` deja afuera una
+ * actualización (la que se está corrigiendo).
+ */
+export function precioAl(precios, fecha, excluir = null) {
+  let precio = 0;
+  for (const h of precios || []) {
+    if (h.numero && h.numero === excluir) continue;
+    if (h.desde && fecha && h.desde > fecha) continue;
+    precio = h.precio;
+  }
+  return precio;
+}
+
 export const ESTADOS ={ vigente: "Vigente", finalizado: "Finalizado", anulado: "Anulado" };
 export const TIPOS_DESCUENTO = { adelanto: "Adelanto de dinero", herramientas: "Herramientas", otro: "Otro" };

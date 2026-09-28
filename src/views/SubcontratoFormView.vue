@@ -88,12 +88,19 @@
             <button class="sc-btn sc-btn-sec sc-btn-mini" @click="agregarPropio('adicional')">+ Adicional</button>
           </span>
         </h3>
+        <!-- Editar el precio acá corrige el ORIGINAL del contrato. Si los precios
+             cambian desde una fecha, eso es una actualización: si se editaran
+             acá, no quedaría registro de desde cuándo rigen. -->
+        <p v-if="editando" class="sc-aviso">
+          Estos son los precios <strong>originales</strong> del contrato. Si los precios cambian desde una fecha,
+          no los edites acá: cargá una <strong>actualización de precios</strong> desde el detalle del subcontrato.
+        </p>
         <div class="sc-tabla-wrap">
           <table class="sc-tabla">
             <thead>
               <tr>
                 <th>Ítem</th><th>Descripción</th><th>Unidad</th>
-                <th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Total</th><th></th>
+                <th class="num">Cantidad</th><th class="num">{{ editando ? "Precio original" : "Precio unit." }}</th><th class="num">Total</th><th></th>
               </tr>
             </thead>
             <tbody>
