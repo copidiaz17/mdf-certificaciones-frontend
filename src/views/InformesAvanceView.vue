@@ -166,7 +166,7 @@
       <p v-else-if="!informes.length" class="vacio">Todavía no se emitió ninguno.</p>
 
       <div v-else class="lista">
-        <div v-for="inf in informes" :key="inf.id" class="emitido">
+        <div v-for="inf in informes" :key="inf.id" class="emitido" :class="{ 'emitido-abierto': abierto && abierto.id === inf.id }">
           <div class="emitido-datos">
             <div class="emitido-titulo">
               {{ inf.titulo || "Informe de avance" }}
@@ -181,7 +181,9 @@
             <p v-if="inf.observaciones" class="emitido-obs">{{ inf.observaciones }}</p>
           </div>
           <div class="emitido-acciones">
-            <button class="btn-ver-chico" @click="abrir(inf.id)">Ver</button>
+            <button class="btn-ver-chico" :disabled="abriendo === inf.id" @click="abrir(inf.id)">
+              {{ abriendo === inf.id ? "Abriendo…" : abierto && abierto.id === inf.id ? "Abierto ↓" : "Ver" }}
+            </button>
             <button v-if="authStore.esAdmin" class="btn-borrar" @click="borrar(inf)">Borrar</button>
           </div>
         </div>
@@ -189,7 +191,7 @@
     </div>
 
     <!-- ── Un informe guardado ────────────────────────────────────────── -->
-    <div class="panel" v-if="abierto">
+    <div class="panel" v-if="abierto" ref="panelAbierto">
       <h3>
         {{ abierto.titulo || "Informe de avance" }}
         <span class="congelado">tal como se emitió</span>
@@ -348,6 +350,7 @@ export default {
       vista: null,
       informes: [],
       abierto: null,
+      abriendo: null,
       cargando: false,
       guardando: false,
       cargandoLista: true,
@@ -469,11 +472,19 @@ export default {
     },
 
     async abrir(id) {
+      this.abriendo = id;
       try {
         const { data } = await api.get(`/obras/${this.obraId}/informes-avance/${id}`);
         this.abierto = data;
+        // El informe se abre al pie de la página, debajo del formulario y de
+        // toda la lista. Sin bajar hasta ahí, con varios informes emitidos
+        // quedaba fuera de la pantalla y "Ver" parecía no hacer nada.
+        await this.$nextTick();
+        this.$refs.panelAbierto?.scrollIntoView({ behavior: "smooth", block: "start" });
       } catch (e) {
         this.toast.error(e?.response?.data?.message || "No se pudo abrir el informe");
+      } finally {
+        this.abriendo = null;
       }
     },
 
@@ -691,6 +702,7 @@ export default {
   display: flex; justify-content: space-between; gap: 12px; align-items: flex-start;
   border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 8px; padding: 10px 12px;
 }
+.emitido-abierto { border-color: #1d4ed8; background: rgba(29, 78, 216, 0.08); }
 .emitido-titulo { font-weight: 700; }
 .emitido-rango { font-weight: 400; opacity: 0.7; margin-left: 8px; font-size: 0.88rem; }
 .emitido-pie { font-size: 0.8rem; opacity: 0.65; margin-top: 2px; }
@@ -705,6 +717,7 @@ export default {
   font-size: 0.85rem; font-weight: 700; cursor: pointer;
 }
 .btn-ver-chico { background: #1d4ed8; color: #eff6ff; }
+.btn-ver-chico:disabled { opacity: 0.7; cursor: wait; }
 .btn-borrar { background: #b91c1c; color: #fef2f2; }
 .btn-volver { background: #475569; color: #f8fafc; align-self: flex-start; padding: 8px 20px; }
 
