@@ -16,6 +16,12 @@
             Subcontratista: <strong>{{ sub.subcontratista }}</strong>
             <span v-if="sub.numero_oc"> · OC N° {{ sub.numero_oc }}</span>
           </p>
+          <p v-if="cargadoPor || corregido" class="sc-bajada autores">
+            <span v-if="cargadoPor">Cargado por {{ cargadoPor }}</span>
+            <span v-if="corregido">
+              {{ cargadoPor ? " · " : "" }}corregido{{ corregido.por ? ` por ${corregido.por}` : "" }}{{ corregido.el ? ` el ${fecha(String(corregido.el).slice(0, 10))}` : "" }}
+            </span>
+          </p>
         </div>
         <div class="sc-acciones no-imprimir">
           <button class="sc-btn sc-btn-sec" @click="volver">← Volver</button>
@@ -42,9 +48,11 @@
         </template>
       </p>
 
-      <p v-if="!editable && !cert.anulado" class="sc-aviso no-imprimir">
-        Solo se corrige el último certificado: cambiar uno anterior alteraría el "anterior" de los
-        siguientes, que ya se pagaron.
+      <!-- Se corrige cualquiera: el "anterior" de los siguientes se calcula, no
+           se copia, así que se acomoda solo. -->
+      <p v-if="editable && cert.id && !esUltimo" class="sc-aviso no-imprimir">
+        No es el último certificado. Al corregirlo se recalculan el «anterior» y el acumulado de los
+        certificados siguientes; lo certificado en cada uno de ellos no cambia.
       </p>
 
       <div class="sc-tabla-wrap tabla-planilla">
@@ -227,7 +235,8 @@
       <p v-if="error" class="sc-error">{{ error }}</p>
 
       <div class="sc-acciones final no-imprimir" v-if="editable">
-        <button v-if="cert.id" class="sc-btn sc-btn-peligro" :disabled="guardando" @click="anular">Anular certificado</button>
+        <!-- Anular, solo el último: anular uno del medio dejaría un hueco en los períodos. -->
+        <button v-if="cert.id && esUltimo" class="sc-btn sc-btn-peligro" :disabled="guardando" @click="anular">Anular certificado</button>
         <button class="sc-btn sc-btn-ok" :disabled="guardando" @click="guardar">
           {{ guardando ? "Guardando…" : cert.id ? "Guardar corrección" : "Emitir certificado" }}
         </button>
@@ -262,6 +271,7 @@ export default {
       descuentos: [],
       actualizaciones: [], // las de precio del contrato, para saber con cuál va
       hastaOriginal: "",   // el fin del período tal como vino: su precio es el congelado
+      esUltimo: true, cargadoPor: null, corregido: null,
       CLASES, TIPOS_DESCUENTO,
     };
   },
@@ -323,6 +333,9 @@ export default {
       this.filas = data.filas;
       this.editable = data.editable;
       this.actualizaciones = data.actualizaciones || [];
+      this.esUltimo = data.es_ultimo !== false;
+      this.cargadoPor = data.cargado_por || null;
+      this.corregido = data.corregido || null;
       this.hastaOriginal = data.certificado.hasta;
       this.descuentos = data.descuentos.map((d) => ({ ...d }));
       const actual = {};
@@ -448,6 +461,7 @@ export default {
 <style scoped>
 .periodo { display: grid; grid-template-columns: repeat(3, minmax(140px, 180px)) 1fr; gap: 12px; }
 .tabla-planilla { max-height: 60vh; }
+.autores { font-size: 0.8rem; margin-top: 2px; }
 .nota-precios {
   margin: 0 0 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.84rem; line-height: 1.5;
   background: rgba(167, 139, 250, 0.08); border: 1px solid rgba(167, 139, 250, 0.35); color: #ddd6fe;
