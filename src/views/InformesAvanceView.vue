@@ -235,6 +235,8 @@
             </label>
           </div>
 
+          <p v-if="errorFotos" class="error-fotos">No se pudieron subir las fotos: {{ errorFotos }}</p>
+
           <p v-if="!(abierto.fotos && abierto.fotos.length) && !porSubir.length" class="vacio">
             Todavía no hay fotos. Un informe que dice «se hormigonó el sector B»
             no prueba nada; la foto del sector B hormigonado, sí.
@@ -258,7 +260,11 @@
               <button class="btn-quitar" @click="quitarPorSubir(i)" title="Quitar">✕</button>
             </div>
             <div class="por-subir-botones">
-              <button class="btn-subir" :disabled="subiendo" @click="subirFotos">
+              <!-- Con paréntesis: sin ellos Vue le pasa el evento del clic como
+                   número de informe, la subida iba a /informes-avance/[object
+                   PointerEvent]/fotos y el servidor respondía "Informe no
+                   encontrado". Ninguna foto subida desde acá llegó a guardarse. -->
+              <button class="btn-subir" :disabled="subiendo" @click="subirFotos()">
                 {{ subiendo ? "Subiendo…" : "Subir " + porSubir.length + " foto(s)" }}
               </button>
               <button class="btn-cancelar-fotos" @click="cancelarSubida">Cancelar</button>
@@ -351,6 +357,7 @@ export default {
       informes: [],
       abierto: null,
       abriendo: null,
+      errorFotos: "",     // por qué no se subieron las últimas fotos
       cargando: false,
       guardando: false,
       cargandoLista: true,
@@ -457,9 +464,14 @@ export default {
         // Las fotos siguen elegidas: se reintentan desde el informe abierto,
         // sin volver a armar nada. Perderlas en silencio sería lo peor que
         // podría pasar acá — son las que se sacaron en obra.
+        // Con el motivo y sin que se cierre solo: antes decía solo "no se
+        // subieron", el cartel se iba en segundos y el jefe de obra creía que
+        // las fotos habían quedado. No quedó ninguna en meses.
         this.toast.warning(
-          "El informe se guardó, pero las fotos no se subieron. Quedaron elegidas: " +
-          "probá de nuevo desde el informe, abajo."
+          "El informe se guardó, pero las fotos NO se subieron" +
+          (this.errorFotos ? `: ${this.errorFotos}` : ".") +
+          " Quedaron elegidas: se pueden volver a subir desde el informe, abajo.",
+          { timeout: false }
         );
       }
 
@@ -535,13 +547,21 @@ export default {
         );
         // El mensaje del servidor avisa cuáles quedaron sin epígrafe.
         if (!informeId) this.toast.success(data.message || "Fotos subidas");
+        this.errorFotos = "";
         this.cancelarSubida();
+        // La lista dice cuántas fotos tiene cada informe: sin esto seguía en
+        // "sin fotos" hasta recargar la página.
+        if (!informeId) await this.traerInformes();
         await this.abrir(id);
         return true;
       } catch (e) {
+        // El motivo queda a la vista en el informe, no solo en un cartel que
+        // se va: si el servidor no tiene dónde guardar fotos, hay que saberlo.
+        this.errorFotos = e?.response?.data?.message
+          || (e?.response?.status === 413 ? "las fotos pesan demasiado." : "el servidor no las aceptó.");
         // Al guardar, el aviso lo da `guardar()`: acá saldrían dos carteles.
         if (!informeId) {
-          this.toast.error(e?.response?.data?.message || "No se pudieron subir las fotos");
+          this.toast.error(`No se pudieron subir las fotos: ${this.errorFotos}`, { timeout: false });
         }
         return false;
       } finally {
@@ -701,6 +721,10 @@ export default {
 .emitido {
   display: flex; justify-content: space-between; gap: 12px; align-items: flex-start;
   border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 8px; padding: 10px 12px;
+}
+.error-fotos {
+  margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.86rem; line-height: 1.5;
+  background: rgba(185, 28, 28, 0.15); border: 1px solid #b91c1c; color: #fecaca;
 }
 .emitido-abierto { border-color: #1d4ed8; background: rgba(29, 78, 216, 0.08); }
 .emitido-titulo { font-weight: 700; }
