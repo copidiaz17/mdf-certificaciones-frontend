@@ -25,7 +25,9 @@
         </div>
         <div class="sc-acciones no-imprimir">
           <button class="sc-btn sc-btn-sec" @click="volver">← Volver</button>
-          <button class="sc-btn sc-btn-sec" @click="imprimir">🖨 Imprimir</button>
+          <button class="sc-btn sc-btn-sec" :disabled="armandoPdf" @click="imprimir">
+            🖨 {{ armandoPdf ? "Armando el PDF…" : "Imprimir (PDF)" }}
+          </button>
         </div>
       </header>
 
@@ -255,6 +257,7 @@
 import api from "../config/axios.Config.js";
 import { useToast } from "vue-toastification";
 import { monto, num, pct, fecha, r2, r4, desglosar, precioAl, CLASES, TIPOS_DESCUENTO } from "../utils/subcontratos.js";
+import { descargarPdfCertificado } from "../utils/pdfCertificadoSub.js";
 
 let claveNueva = 0;
 
@@ -272,6 +275,7 @@ export default {
       actualizaciones: [], // las de precio del contrato, para saber con cuál va
       hastaOriginal: "",   // el fin del período tal como vino: su precio es el congelado
       esUltimo: true, cargadoPor: null, corregido: null,
+      armandoPdf: false,
       CLASES, TIPOS_DESCUENTO,
     };
   },
@@ -384,7 +388,64 @@ export default {
     },
     agregarDescuento() { this.descuentos.push({ tipo: "adelanto", concepto: "", importe: null }); },
     volver() { this.$router.push({ name: "DetalleSubcontrato", params: { obraId: this.obraId, subId: this.subId } }); },
-    imprimir() { window.print(); },
+    // Antes era window.print(): salía una captura de la pantalla. Ahora es el
+    // documento que se le entrega al contratista, armado con lo que muestra la
+    // planilla (si se está corrigiendo, con lo corregido).
+    async imprimir() {
+      const fila = (f, extra = {}) => {
+        const { principal } = this.c(f);
+        return {
+          numero: f.numero, descripcion: f.descripcion, unidad: f.unidad,
+          contratado: f.contratado, precio: this.precioDe(f), total: this.totalDe(f),
+          q: principal.cantidad, imp: principal.importe,
+          // Sobre lo contratado del renglón: lo de más va en su propio renglón,
+          // así que acá no puede pasar del 100 %.
+          pct: f.contratado ? r2(Math.min(100, (principal.cantidad.acumulado / f.contratado) * 100)) : 0,
+          ...extra,
+        };
+      };
+      const adicionales = [
+        ...this.filasAdicionales.map((f) => fila(f, { etiqueta: CLASES[f.clase] })),
+        ...this.deMasVirtuales.map((v) => ({
+          numero: v.f.numero, descripcion: v.f.descripcion, unidad: v.f.unidad,
+          etiqueta: `${CLASES.de_mas} (por encima de lo acordado)`,
+          contratado: v.d.cantidad.acumulado, precio: this.vigenteDe(v.f), total: v.d.total,
+          q: v.d.cantidad, imp: v.d.importe, pct: 100,
+        })),
+        ...this.nuevos.filter((n) => n.descripcion.trim() && Number(n.cantidad) > 0).map((n) => ({
+          numero: n.numero, descripcion: n.descripcion, unidad: n.unidad, etiqueta: CLASES.nuevo,
+          contratado: n.cantidad, precio: n.precio_unitario, total: this.totalNuevo(n),
+          q: { anterior: 0, actual: n.cantidad, acumulado: n.cantidad },
+          imp: { anterior: 0, actual: this.totalNuevo(n), acumulado: this.totalNuevo(n) }, pct: 100,
+        })),
+      ];
+      this.armandoPdf = true;
+      try {
+        await descargarPdfCertificado({
+          obra: this.obraNombre,
+          sub: this.sub,
+          cert: this.cert,
+          precios: this.rige
+            ? `Actualización N° ${this.rige.numero} (rigen desde el ${fecha(this.rige.fecha_vigencia)})`
+            : this.actualizaciones.length ? "Originales de la orden de compra" : null,
+          secciones: [
+            { titulo: "Contrato", filas: this.filasContrato.map((f) => fila(f)) },
+            { titulo: "Adicionales", filas: adicionales },
+          ],
+          totales: this.totales,
+          descuentos: this.descuentos
+            .filter((x) => Number(x.importe) > 0)
+            .map((x) => ({ etiqueta: TIPOS_DESCUENTO[x.tipo] + (x.concepto ? ` - ${x.concepto}` : ""), importe: x.importe })),
+          aPagar: this.aPagar,
+          borrador: !this.cert.id,
+        });
+      } catch (e) {
+        this.toast.error("No se pudo armar el PDF.");
+        console.error(e);
+      } finally {
+        this.armandoPdf = false;
+      }
+    },
     cuerpo(confirmar) {
       return {
         desde: this.cert.desde, hasta: this.cert.hasta, fecha: this.cert.fecha || null,
