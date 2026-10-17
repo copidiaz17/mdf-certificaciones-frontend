@@ -404,6 +404,7 @@ export default {
           ...extra,
         };
       };
+      const conCertificacion = (x) => Number(x.q.acumulado || 0) > 0.00005;
       const adicionales = [
         ...this.filasAdicionales.map((f) => fila(f, { etiqueta: CLASES[f.clase] })),
         ...this.deMasVirtuales.map((v) => ({
@@ -428,15 +429,21 @@ export default {
           precios: this.rige
             ? `Actualización N° ${this.rige.numero} (rigen desde el ${fecha(this.rige.fecha_vigencia)})`
             : this.actualizaciones.length ? "Originales de la orden de compra" : null,
+          // Solo los ítems con algo certificado (antes o en este período): un
+          // pliego de 40 ítems con 6 movidos imprimía 34 renglones en cero. Los
+          // totales siguen siendo los del contrato entero; el PDF dice cuántos
+          // quedaron afuera.
           secciones: [
-            { titulo: "Contrato", filas: this.filasContrato.map((f) => fila(f)) },
-            { titulo: "Adicionales", filas: adicionales },
+            { titulo: "Contrato", filas: this.filasContrato.map((f) => fila(f)).filter(conCertificacion) },
+            { titulo: "Adicionales", filas: adicionales.filter(conCertificacion) },
           ],
           totales: this.totales,
           descuentos: this.descuentos
             .filter((x) => Number(x.importe) > 0)
             .map((x) => ({ etiqueta: TIPOS_DESCUENTO[x.tipo] + (x.concepto ? ` - ${x.concepto}` : ""), importe: x.importe })),
           aPagar: this.aPagar,
+          omitidos: this.filasContrato.map((f) => fila(f)).filter((x) => !conCertificacion(x)).length
+            + adicionales.filter((x) => !conCertificacion(x)).length,
           borrador: !this.cert.id,
         });
       } catch (e) {
@@ -528,7 +535,8 @@ export default {
   background: rgba(167, 139, 250, 0.08); border: 1px solid rgba(167, 139, 250, 0.35); color: #ddd6fe;
 }
 .tabla-planilla th.grupo { text-align: center; border-left: 1px solid #334155; }
-.tabla-planilla .actual { background: rgba(167, 139, 250, 0.06); }
+/* Sólido y no transparente: sobre el fondo claro de MDF la columna quedaba blanca. */
+.tabla-planilla .actual { background: #121433; }
 .chico { width: 80px; font-size: 0.8rem; }
 .ancho { width: 100%; min-width: 220px; }
 .pie { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-top: 16px; }

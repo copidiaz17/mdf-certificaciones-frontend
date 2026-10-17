@@ -57,6 +57,7 @@ async function cargarLogo(url) {
  * @param d.totales     { contrato, anterior, actual, acumulado, avance }
  * @param d.descuentos  [{ etiqueta, importe }]
  * @param d.aPagar
+ * @param d.omitidos    cuántos ítems sin nada certificado no se muestran
  * @param d.borrador    true si todavía no se emitió
  */
 export async function descargarPdfCertificado(d) {
@@ -172,6 +173,16 @@ export async function descargarPdfCertificado(d) {
 
   // ── Resumen a pagar ────────────────────────────────────────────────────
   let y = doc.lastAutoTable.finalY + 6;
+  // Los totales son los del contrato entero: si se ocultaron ítems, se dice,
+  // para que nadie busque en los renglones de dónde sale el total acordado.
+  if (d.omitidos) {
+    doc.setFont("helvetica", "italic").setFontSize(7.5).setTextColor(110);
+    doc.text(
+      `No se muestran ${d.omitidos} ítem(s) del contrato sin certificar todavía; el total acordado y el avance los incluyen.`,
+      M, y - 2
+    );
+    y += 3;
+  }
   const anchoResumen = 105;
   const filasResumen = [
     ["Certificado de este período", fmtMonto(t.actual)],
@@ -205,8 +216,12 @@ export async function descargarPdfCertificado(d) {
   }
 
   // ── Firmas ─────────────────────────────────────────────────────────────
-  let yFirma = Math.max(yResumenFin, y + 30) + 18;
-  if (yFirma > H - 16) { doc.addPage(); yFirma = 40; }
+  // Las firmas van debajo del resumen, pero nunca encima del pie de página:
+  // si no entran, se acercan un poco; si ni así, pasan a otra hoja.
+  const tope = H - 22;
+  const debajo = Math.max(yResumenFin, y + 30);
+  let yFirma = Math.min(debajo + 18, tope);
+  if (yFirma < debajo + 10) { doc.addPage(); yFirma = 40; }
   doc.setDrawColor(120).setLineWidth(0.3);
   const anchoFirma = 70;
   const firma = (x, linea1, linea2) => {

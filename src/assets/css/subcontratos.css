@@ -1,7 +1,11 @@
 /* Estilos compartidos por la sección de subcontratos. Todo lleva el prefijo
    .sc- para no chocar con los estilos del resto del sistema. */
 
-.sc-vista { padding: 20px; color: #e5e7eb; }
+/* Fondo propio y colores SÓLIDOS: estas pantallas son oscuras, y en MDF el
+   resto del sistema es claro (lavanda). Con fondo transparente, el título se
+   perdía y la casilla de cantidad, al llenarse, quedaba blanca con el número
+   en gris claro: la jefa de obra no veía lo que escribía. */
+.sc-vista { padding: 20px; color: #e5e7eb; background: #020617; border-radius: 14px; }
 
 .sc-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .sc-eyebrow { margin: 0; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: #a78bfa; font-weight: 700; }
@@ -69,7 +73,7 @@
 
 .sc-celda { width: 90px; padding: 4px 6px; border-radius: 5px; border: 1px solid #263349; background: #020617; color: #e5e7eb; text-align: right; font-variant-numeric: tabular-nums; }
 .sc-celda:focus { outline: 2px solid #a78bfa; outline-offset: 0; }
-.sc-celda-llena { border-color: rgba(167, 139, 250, 0.6); background: rgba(167, 139, 250, 0.08); }
+.sc-celda-llena { border-color: rgba(167, 139, 250, 0.6); background: #160f2e; }
 
 .sc-barra { height: 8px; background: #1e293b; border-radius: 999px; position: relative; overflow: visible; min-width: 90px; }
 .sc-barra-relleno { height: 100%; background: #a78bfa; border-radius: 999px; }
