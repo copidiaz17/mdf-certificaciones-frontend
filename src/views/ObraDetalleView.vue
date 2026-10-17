@@ -555,8 +555,14 @@ export default {
       });
     },
 
+    // Las fechas llegan como AAAA-MM-DD. new Date("2026-10-12") las toma como
+    // medianoche en UTC, que en Argentina es el día anterior a las 21 hs: cada
+    // fecha se mostraba un día antes (un avance del 12 al 17/10 figuraba del 11
+    // al 16). Se arma el texto sin pasar por la zona horaria.
     formatDate(dateStr) {
       if (!dateStr) return "";
+      const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return `${Number(m[3])}/${Number(m[2])}/${m[1]}`;
       const d = new Date(dateStr);
       return isNaN(d) ? dateStr : d.toLocaleDateString("es-AR");
     },

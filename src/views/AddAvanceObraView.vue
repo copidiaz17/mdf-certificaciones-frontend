@@ -201,6 +201,9 @@
                   {{ avanceId && av.id == avanceId ? "✏️ Editando" : "Editar" }}
                 </button>
                 <button class="btn-hist-pdf" @click="exportarAvancePDF(av)">PDF</button>
+                <button class="btn-hist-borrar" :disabled="borrando === av.id" @click="borrarAvance(av)">
+                  {{ borrando === av.id ? "Borrando…" : "Eliminar" }}
+                </button>
               </td>
             </tr>
           </tbody>
@@ -229,6 +232,7 @@ export default {
   data() {
     return {
       editMode: false,
+      borrando: null,
       obraNombre: "",
       avance: {
         numero_avance: "",
@@ -353,8 +357,14 @@ export default {
       });
     },
 
+    // Las fechas llegan como AAAA-MM-DD. new Date("2026-10-12") las toma como
+    // medianoche en UTC, que en Argentina es el día anterior a las 21 hs: cada
+    // fecha se mostraba un día antes (un avance del 12 al 17/10 figuraba del 11
+    // al 16). Se arma el texto sin pasar por la zona horaria.
     formatDate(dateStr) {
       if (!dateStr) return "";
+      const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) return `${Number(m[3])}/${Number(m[2])}/${m[1]}`;
       const d = new Date(dateStr);
       return isNaN(d) ? dateStr : d.toLocaleDateString("es-AR");
     },
@@ -519,6 +529,33 @@ export default {
       } catch (err) {
         const msg = err.response?.data?.message || "Error al guardar el avance.";
         this.toast.error(msg);
+      }
+    },
+
+    // Antes no existía: un avance cargado mal solo se podía corregir.
+    async borrarAvance(av) {
+      const periodo = this.formatPeriodo(av);
+      if (!window.confirm(
+        `¿Eliminar el avance N° ${av.numero_avance}${periodo ? ` (${periodo})` : ""}?
+
+` +
+        "Se borran todas sus cantidades. Los informes ya emitidos no cambian. Esto no se puede deshacer."
+      )) return;
+      this.borrando = av.id;
+      try {
+        const { data } = await api.delete(`/obras/${this.obraId}/avances/${av.id}`);
+        // Si había informes que lo incluían, que el aviso no se vaya solo.
+        if (data.informes_que_lo_incluian?.length) this.toast.warning(data.message, { timeout: false });
+        else this.toast.success(data.message || "Avance eliminado");
+        // Si se estaba editando justo ese, se vuelve a la carga de uno nuevo.
+        if (this.avanceId && Number(this.avanceId) === av.id) {
+          this.$router.push({ name: "AddAvanceObra", params: { obraId: this.obraId } });
+        }
+        await this.cargarHistorial();
+      } catch (e) {
+        this.toast.error(e?.response?.data?.message || "No se pudo eliminar el avance.", { timeout: false });
+      } finally {
+        this.borrando = null;
       }
     },
 
@@ -811,6 +848,22 @@ tr.fila-excedida td { background: rgba(180, 83, 9, 0.06); }
   transition: filter 0.15s ease;
 }
 .btn-hist-pdf:hover { filter: brightness(1.2); }
+
+/* Colores sólidos: tiene que leerse igual en el tema oscuro de Falube y en el
+   claro de MDF. Con borde para que no se confunda con el de PDF. */
+.btn-hist-borrar {
+  margin-left: 6px;
+  padding: 3px 10px;
+  background: #ffffff;
+  color: #b91c1c;
+  border: 1px solid #b91c1c;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+.btn-hist-borrar:hover:not(:disabled) { background: #b91c1c; color: #ffffff; }
+.btn-hist-borrar:disabled { opacity: 0.6; cursor: wait; }
 
 /* SKELETON */
 .historial-skeleton {
