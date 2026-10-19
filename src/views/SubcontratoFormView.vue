@@ -7,7 +7,7 @@
         <p class="sc-bajada">
           Los ítems salen del pliego de la obra, pero con la cantidad y el precio acordados con el
           subcontratista. También se pueden sumar trabajos que el pliego no tiene. Los adicionales
-          dicen de qué clase son: más cantidad de un rubro que ya estaba («cargado de más») o un
+          dicen de qué clase son: más cantidad de un rubro que ya estaba («mayor cantidad») o un
           rubro que no existía («ítem nuevo»). Lo que se certifique por encima de la OC se registra
           solo, al certificar.
         </p>
@@ -117,10 +117,10 @@
                   <div v-if="it.origen === 'adicional'" class="adicional-tipo">
                     <select v-model="it.tipo_adicional" class="sc-input" @change="it.tipo_adicional === 'nuevo' && (it.item_origen_id = null)">
                       <option value="nuevo">Adicional · ítem nuevo</option>
-                      <option value="de_mas" :disabled="!rubrosGuardados.length">Adicional · cargado de más</option>
+                      <option value="de_mas" :disabled="!rubrosGuardados.length">Adicional · mayor cantidad</option>
                     </select>
                     <select v-if="it.tipo_adicional === 'de_mas'" v-model="it.item_origen_id" class="sc-input">
-                      <option :value="null" disabled>¿Qué rubro agranda?</option>
+                      <option :value="null" disabled>¿Qué rubro amplía?</option>
                       <option v-for="r in rubrosGuardados" :key="r.id" :value="r.id">{{ r.numero ? r.numero + " · " : "" }}{{ r.descripcion }}</option>
                     </select>
                     <span v-if="it.creado_en_certificado_id" class="sc-muted nota">nació en un certificado</span>
@@ -138,7 +138,7 @@
             </tbody>
             <tfoot v-if="items.length">
               <tr><td colspan="5" class="num">Contrato original</td><td class="num">{{ monto(totalOriginal) }}</td><td></td></tr>
-              <tr v-if="totalDe_mas"><td colspan="5" class="num">Adicionales · cargado de más</td><td class="num">{{ monto(totalDe_mas) }}</td><td></td></tr>
+              <tr v-if="totalDe_mas"><td colspan="5" class="num">Adicionales · mayor cantidad</td><td class="num">{{ monto(totalDe_mas) }}</td><td></td></tr>
               <tr v-if="totalNuevo"><td colspan="5" class="num">Adicionales · ítem nuevo</td><td class="num">{{ monto(totalNuevo) }}</td><td></td></tr>
               <tr><td colspan="5" class="num">Total de la orden de compra</td><td class="num">{{ monto(totalOriginal + totalDe_mas + totalNuevo) }}</td><td></td></tr>
             </tfoot>
@@ -246,7 +246,7 @@ export default {
       if (!this.form.subcontratista.trim()) { this.error = "Falta el nombre del subcontratista."; return; }
       if (!this.items.length) { this.error = "La orden de compra tiene que tener al menos un ítem."; return; }
       const sinRubro = this.items.find((i) => i.origen === "adicional" && i.tipo_adicional === "de_mas" && !i.item_origen_id);
-      if (sinRubro) { this.error = `El adicional "${sinRubro.descripcion || "sin descripción"}" es de más: elegí qué rubro agranda.`; return; }
+      if (sinRubro) { this.error = `El adicional "${sinRubro.descripcion || "sin descripción"}" es por mayor cantidad: elegí qué rubro amplía.`; return; }
       const sinPrecio = this.items.find((i) => !(Number(i.precio_unitario) > 0));
       if (sinPrecio && !window.confirm(`"${sinPrecio.descripcion || "Un ítem"}" tiene precio 0. ¿Guardar igual?`)) return;
 

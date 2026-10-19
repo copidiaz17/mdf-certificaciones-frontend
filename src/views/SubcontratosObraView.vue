@@ -55,7 +55,7 @@
           <div><dt>Certificado</dt><dd>{{ monto(s.totales.certificado) }}</dd></div>
           <div><dt>Pendiente</dt><dd>{{ monto(s.totales.pendiente) }}</dd></div>
           <div><dt>Neto pagado</dt><dd>{{ monto(s.totales.neto_pagado) }}</dd></div>
-          <div v-if="s.totales.de_mas > 0" class="exced"><dt>Adic. de más</dt><dd>{{ monto(s.totales.de_mas) }}</dd></div>
+          <div v-if="s.totales.de_mas > 0" class="exced"><dt>Adic. mayor cantidad</dt><dd>{{ monto(s.totales.de_mas) }}</dd></div>
           <div v-if="s.totales.nuevo > 0" class="exced"><dt>Adic. ítem nuevo</dt><dd>{{ monto(s.totales.nuevo) }}</dd></div>
         </dl>
 

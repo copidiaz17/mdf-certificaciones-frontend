@@ -81,7 +81,7 @@
               <td>{{ f.numero }}</td>
               <td class="desc">
                 {{ f.descripcion }}
-                <span v-if="c(f).deMas" class="sc-chip sc-chip-de_mas">+{{ num(c(f).deMas.cantidad.acumulado, 4) }} de más</span>
+                <span v-if="c(f).deMas" class="sc-chip sc-chip-de_mas">+{{ num(c(f).deMas.cantidad.acumulado, 4) }} sobre lo contratado</span>
               </td>
               <td>{{ f.unidad }}</td>
               <td class="num">{{ num(f.contratado, 4) }}</td>
@@ -104,7 +104,7 @@
             </tr>
 
             <!-- Adicionales: los que ya están en la OC y los que este certificado
-                 registra (lo cargado de más, en gris, y los ítems nuevos). -->
+                 registra (la mayor cantidad, en gris, y los ítems nuevos). -->
             <tr v-if="filasAdicionales.length || deMasVirtuales.length || nuevos.length" class="fila-seccion">
               <td colspan="15">Adicionales</td>
             </tr>
@@ -237,8 +237,9 @@
       <p v-if="error" class="sc-error">{{ error }}</p>
 
       <div class="sc-acciones final no-imprimir" v-if="editable">
-        <!-- Anular, solo el último: anular uno del medio dejaría un hueco en los períodos. -->
-        <button v-if="cert.id && esUltimo" class="sc-btn sc-btn-peligro" :disabled="guardando" @click="anular">Anular certificado</button>
+        <!-- Eliminar, solo el último: así su número queda libre para el próximo
+             y la numeración no queda con huecos. Uno del medio se corrige. -->
+        <button v-if="cert.id && esUltimo" class="sc-btn sc-btn-peligro" :disabled="guardando" @click="eliminar">Eliminar certificado</button>
         <button class="sc-btn sc-btn-ok" :disabled="guardando" @click="guardar">
           {{ guardando ? "Guardando…" : cert.id ? "Guardar corrección" : "Emitir certificado" }}
         </button>
@@ -316,7 +317,7 @@ export default {
     extras() {
       const lista = this.deMasVirtuales
         .filter((v) => v.d.cantidad.actual > 0.00005 || (!this.cert.id && v.d.cantidad.acumulado > 0.00005))
-        .map((v) => ({ texto: `${v.f.descripcion}: ${num(v.d.cantidad.acumulado, 4)} ${v.f.unidad || ""} de más` }));
+        .map((v) => ({ texto: `${v.f.descripcion}: ${num(v.d.cantidad.acumulado, 4)} ${v.f.unidad || ""} más de lo contratado` }));
       for (const n of this.nuevos) {
         if (n.descripcion && Number(n.cantidad) > 0) {
           lista.push({ texto: `${n.descripcion}: ítem nuevo, ${num(n.cantidad, 4)} ${n.unidad || ""}` });
@@ -409,7 +410,7 @@ export default {
         ...this.filasAdicionales.map((f) => fila(f, { etiqueta: CLASES[f.clase] })),
         ...this.deMasVirtuales.map((v) => ({
           numero: v.f.numero, descripcion: v.f.descripcion, unidad: v.f.unidad,
-          etiqueta: `${CLASES.de_mas} (por encima de lo acordado)`,
+          etiqueta: `${CLASES.de_mas} (sobre lo contratado)`,
           contratado: v.d.cantidad.acumulado, precio: this.vigenteDe(v.f), total: v.d.total,
           q: v.d.cantidad, imp: v.d.importe, pct: 100,
         })),
@@ -508,15 +509,21 @@ export default {
       for (const a of data.adicionales_registrados || []) this.toast.warning(a.mensaje, { timeout: 9000 });
       this.volver();
     },
-    async anular() {
-      if (!window.confirm(`¿Anular el certificado N° ${this.cert.numero}? Deja de contar en el acumulado, y se quitan los ítems nuevos que haya creado.`)) return;
+    // Antes era "anular": quedaba guardado y el próximo tomaba el número
+    // siguiente, así que la numeración quedaba con un hueco.
+    async eliminar() {
+      if (!window.confirm(
+        `¿Eliminar el certificado N° ${this.cert.numero}?\n\n` +
+        "Se borran sus cantidades, sus descuentos y los ítems nuevos que haya creado. " +
+        `El número ${this.cert.numero} queda libre para el próximo certificado. Esto no se puede deshacer.`
+      )) return;
       this.guardando = true;
       try {
-        await api.post(`/obras/${this.obraId}/subcontratos/${this.subId}/certificados/${this.cert.id}/anular`);
-        this.toast.success(`Certificado N° ${this.cert.numero} anulado`);
+        const { data } = await api.delete(`/obras/${this.obraId}/subcontratos/${this.subId}/certificados/${this.cert.id}`);
+        this.toast.success(data.message || `Certificado N° ${this.cert.numero} eliminado`);
         this.volver();
       } catch (e) {
-        this.error = e.response?.data?.message || "No se pudo anular.";
+        this.error = e.response?.data?.message || "No se pudo eliminar el certificado.";
       } finally {
         this.guardando = false;
       }

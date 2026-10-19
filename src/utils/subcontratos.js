@@ -31,12 +31,14 @@ export function sumarDias(f, dias) {
 // cantidad de un rubro que ya estaba, o un rubro que no existía.
 export const CLASES = {
   contrato: "Contrato",
-  de_mas: "Adicional · cargado de más",
+  // "Mayor cantidad" y no "cargado de más": eso sonaba a un error del técnico
+  // que cargó, y es trabajo que se hizo por encima de lo contratado.
+  de_mas: "Adicional · mayor cantidad",
   nuevo: "Adicional · ítem nuevo",
 };
 
 /**
- * Desdobla un renglón en lo contratado y lo cargado de más, con las cantidades
+ * Desdobla un renglón en lo contratado y la mayor cantidad, con las cantidades
  * totales anterior y actual. Es el mismo cálculo que hace el servidor
  * (utils/subcontratos.js → desglosar), para recalcular mientras se escribe.
  */

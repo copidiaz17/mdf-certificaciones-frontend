@@ -49,7 +49,7 @@
           <span class="sc-tile-sub">{{ pct(Math.max(0, 100 - t.avance)) }} de lo acordado</span>
         </div>
         <div class="sc-tile" :class="{ 'sc-tile-alerta': t.de_mas > 0 }">
-          <span class="sc-tile-label">Adicional · cargado de más</span>
+          <span class="sc-tile-label">Adicional · mayor cantidad</span>
           <span class="sc-tile-valor">{{ monto(t.de_mas) }}</span>
           <span class="sc-tile-sub">{{ t.renglones_de_mas }} rubro(s) por encima de la OC</span>
         </div>
@@ -92,7 +92,7 @@
                     {{ it.descripcion }}
                     <span v-if="it.clase !== 'contrato'" class="sc-chip" :class="`sc-chip-${it.clase}`">{{ it.etiqueta }}</span>
                     <span v-if="it.clase === 'de_mas' && it.rubro_origen" class="sc-origen">
-                      {{ it.virtual ? "certificado por encima de lo contratado en" : "agranda" }} «{{ it.rubro_origen }}»
+                      {{ it.virtual ? "certificado por encima de lo contratado en" : "amplía" }} «{{ it.rubro_origen }}»
                     </span>
                   </td>
                   <td>{{ it.unidad }}</td>
