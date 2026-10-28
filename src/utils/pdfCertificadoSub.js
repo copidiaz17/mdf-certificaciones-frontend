@@ -8,6 +8,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { EMPRESA } from "../config/empresa.js";
+import { cargarLogo } from "./logoEmpresa.js";
 
 const fmtMonto = (n) =>
   "$ " + Number(n || 0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -24,28 +25,6 @@ const fmtFecha = (f) => {
   const [a, m, d] = String(f).slice(0, 10).split("-");
   return a && m && d ? `${d}/${m}/${a}` : String(f);
 };
-
-/** El logo como imagen embebida, con su proporción. Si no carga, el PDF sale igual. */
-async function cargarLogo(url) {
-  try {
-    const blob = await (await fetch(url)).blob();
-    const dataUrl = await new Promise((ok, mal) => {
-      const r = new FileReader();
-      r.onload = () => ok(r.result);
-      r.onerror = mal;
-      r.readAsDataURL(blob);
-    });
-    const { ancho, alto } = await new Promise((ok, mal) => {
-      const img = new Image();
-      img.onload = () => ok({ ancho: img.naturalWidth, alto: img.naturalHeight });
-      img.onerror = mal;
-      img.src = dataUrl;
-    });
-    return { dataUrl, ancho, alto, formato: blob.type.includes("png") ? "PNG" : "JPEG" };
-  } catch {
-    return null;
-  }
-}
 
 /**
  * @param d.obra        nombre de la obra

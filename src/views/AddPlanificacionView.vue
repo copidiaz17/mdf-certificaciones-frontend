@@ -113,6 +113,15 @@
               desde el avance del {{ formatDate(grupo.fecha_corte) }} · {{ motivoLabel(grupo.motivo) }}
             </span>
             <span v-if="grupo.vigente" class="badge-vigente">vigente</span>
+            <!-- La versión entera, con todos sus meses, como la grilla del replanteo. -->
+            <span class="grupo-bajar">
+              <button class="btn-hist-pdf" :disabled="!!bajando" title="Todos los meses en un PDF" @click="bajarGrupo(grupo, 'pdf')">
+                {{ bajando === `g${grupo.version}pdf` ? "Armando…" : "PDF completo" }}
+              </button>
+              <button class="btn-hist-excel" :disabled="!!bajando" title="Todos los meses en un Excel" @click="bajarGrupo(grupo, 'excel')">
+                {{ bajando === `g${grupo.version}excel` ? "Armando…" : "Excel completo" }}
+              </button>
+            </span>
             <button v-if="grupo.version > 0" class="btn-hist-editar grupo-accion" @click="irAReplanteo(grupo.version)">
               {{ grupo.vigente ? "Abrir / editar" : "Ver" }}
             </button>
@@ -144,7 +153,8 @@
                       </button>
                       <button class="btn-hist-borrar" @click="borrarMes(planif)">Borrar</button>
                     </template>
-                    <button class="btn-hist-pdf" @click="exportarPlanificacionPDF(planif)">PDF</button>
+                    <button class="btn-hist-pdf" :disabled="!!bajando" @click="bajarMes(planif, 'pdf')">PDF</button>
+                    <button class="btn-hist-excel" :disabled="!!bajando" @click="bajarMes(planif, 'excel')">Excel</button>
                   </td>
                 </tr>
               </tbody>
@@ -158,8 +168,7 @@
 
 <script>
 import api from "../config/axios.Config.js";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { armarPlan, descargarPlanExcel, descargarPlanPdf, descargarMesExcel, descargarMesPdf } from "../utils/planDeTrabajos.js";
 
 export default {
   props: ["obraId", "planifId"],
@@ -176,6 +185,10 @@ export default {
       guardando: false,
       historial: [],
       cargandoHistorial: false,
+      // Qué papel se está armando ("g2excel", "m15pdf"…): mientras tanto los
+      // botones esperan, que un Excel de muchos meses tarda unos segundos.
+      bajando: null,
+      contextoObra: null,
     };
   },
 
@@ -416,39 +429,74 @@ export default {
       this.$router.push({ name: "EditarPlanificacion", params: { obraId: this.obraId, planifId } });
     },
 
-    async exportarPlanificacionPDF(planif) {
+    // El pliego y el nombre de la obra salen del mismo lugar que la grilla del
+    // replanteo; con versión, también sus meses y lo ejecutado al corte.
+    async contexto(version) {
+      const q = version ? `?version=${version}` : "";
+      const { data } = await api.get(`/obras/${this.obraId}/replanteos/contexto${q}`);
+      if (!version) this.contextoObra = data;
+      return data;
+    },
+
+    async planDeGrupo(grupo) {
+      if (grupo.version > 0) {
+        const ctx = await this.contexto(grupo.version);
+        return armarPlan({
+          obra: ctx.obra?.nombre, version: grupo.version, motivo: ctx.version?.motivo,
+          fecha_corte: ctx.version?.fecha_corte, items: ctx.items, meses: ctx.version?.meses || [],
+        });
+      }
+      // El plan original no tiene un "contexto" propio: se arma con cada mes.
+      const ctx = this.contextoObra || (await this.contexto());
+      const meses = await Promise.all(grupo.filas.map(async (f) => {
+        const { data } = await api.get(`/obras/${this.obraId}/planificaciones/${f.id}`);
+        return {
+          fecha_desde: f.fecha_desde, fecha_hasta: f.fecha_hasta,
+          items: (data.items || []).map((i) => ({ pliego_item_id: i.pliego_item_id, porcentaje: Number(i.porcentaje_planificado || 0) })),
+        };
+      }));
+      return armarPlan({ obra: ctx.obra?.nombre, version: 0, items: ctx.items, meses });
+    },
+
+    async bajarGrupo(grupo, formato) {
+      this.error = "";
+      this.bajando = `g${grupo.version}${formato}`;
       try {
-        const res = await api.get(`/obras/${this.obraId}/planificaciones/${planif.id}`);
-        const data = res.data;
-        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text("Planificación de Obra", 14, 18);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Período: ${this.formatDate(planif.fecha_desde)} → ${this.formatDate(planif.fecha_hasta)}`, 14, 26);
-        doc.text(`Versión: ${Number(planif.version || 0) === 0 ? "Plan original" : `Replanteo ${planif.version}`}`, 14, 32);
-        doc.text(`% Ponderado Período: ${this.formatPercent(planif.total_porcentaje)}`, 14, 38);
-        doc.text(`% Ponderado Acumulado: ${this.formatPercent(planif.total_porcentaje_acum)}`, 14, 44);
-        const rows = (data.items || []).map((it) => {
-          const pi = it.pliegoItem || {};
-          return [pi.numeroItem || "", pi.descripcionItem || "", pi.unidadMedida || "", this.mostrar(pi.cantidad || 0), `${Number(it.porcentaje_planificado || 0).toFixed(2)}%`];
-        });
-        autoTable(doc, {
-          startY: 50,
-          head: [["Ítem", "Descripción", "Unidad", "Cantidad", "% Planificado"]],
-          body: rows,
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fillColor: [29, 78, 216], textColor: 255, fontStyle: "bold" },
-          alternateRowStyles: { fillColor: [240, 245, 255] },
-          columnStyles: { 0: { cellWidth: 15 }, 1: { cellWidth: 90 }, 2: { cellWidth: 20 }, 3: { cellWidth: 25, halign: "right" }, 4: { cellWidth: 30, halign: "right" } },
-        });
-        const desde = (planif.fecha_desde || "").slice(0, 10);
-        const hasta = (planif.fecha_hasta || "").slice(0, 10);
-        doc.save(`planificacion_${desde}_${hasta}.pdf`);
+        const plan = await this.planDeGrupo(grupo);
+        if (formato === "excel") await descargarPlanExcel(plan);
+        else await descargarPlanPdf(plan);
       } catch (e) {
-        console.error("Error generando PDF:", e);
-        this.error = "Error al generar el PDF";
+        console.error("Error armando el plan:", e);
+        this.error = `No se pudo armar el ${formato === "excel" ? "Excel" : "PDF"}.`;
+      } finally {
+        this.bajando = null;
+      }
+    },
+
+    async bajarMes(planif, formato) {
+      this.error = "";
+      this.bajando = `m${planif.id}${formato}`;
+      try {
+        const [{ data }, ctx] = await Promise.all([
+          api.get(`/obras/${this.obraId}/planificaciones/${planif.id}`),
+          this.contextoObra ? Promise.resolve(this.contextoObra) : this.contexto(),
+        ]);
+        const mes = {
+          obra: ctx.obra?.nombre, version: planif.version,
+          desde: planif.fecha_desde, hasta: planif.fecha_hasta,
+          periodo: planif.total_porcentaje, acumulado: planif.total_porcentaje_acum,
+          items: (data.items || []).map((it) => {
+            const pi = it.pliegoItem || {};
+            return { numero: pi.numeroItem, descripcion: pi.descripcionItem, unidad: pi.unidadMedida, cantidad: pi.cantidad, porcentaje: it.porcentaje_planificado };
+          }),
+        };
+        if (formato === "excel") await descargarMesExcel(mes);
+        else await descargarMesPdf(mes);
+      } catch (e) {
+        console.error("Error armando el mes:", e);
+        this.error = `No se pudo armar el ${formato === "excel" ? "Excel" : "PDF"}.`;
+      } finally {
+        this.bajando = null;
       }
     },
   },
@@ -538,6 +586,11 @@ export default {
 .btn-hist-borrar:hover { background: #3b1219; }
 .btn-hist-pdf { padding: 4px 12px; background: #3b82f6; color: #fff; border: none; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 0.8rem; margin-left: 6px; }
 .btn-hist-pdf:hover { filter: brightness(1.15); }
+.btn-hist-excel { padding: 4px 12px; background: #15803d; color: #fff; border: none; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 0.8rem; margin-left: 6px; }
+.btn-hist-excel:hover { filter: brightness(1.15); }
+.btn-hist-pdf:disabled, .btn-hist-excel:disabled { opacity: 0.55; cursor: wait; }
+.grupo-bajar { display: inline-flex; gap: 0; margin-left: auto; }
+.grupo-bajar + .grupo-accion { margin-left: 8px; }
 .td-completo { color: #4ade80; font-weight: 700; }
 .historial-skeleton { display: flex; flex-direction: column; gap: 10px; }
 .skel-row { height: 36px; border-radius: 6px; background: linear-gradient(90deg, #1a2744 25%, #1e3060 50%, #1a2744 75%); background-size: 200% 100%; animation: shimmer-hist 1.5s infinite; }

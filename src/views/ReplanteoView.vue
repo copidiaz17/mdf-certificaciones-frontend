@@ -12,7 +12,18 @@
           ahí no se toca: se reparte lo que le falta a cada ítem en los meses que vienen.
         </p>
       </div>
-      <button class="btn-sec" @click="volver">← Volver a la planificación</button>
+      <div class="cabecera-botones">
+        <!-- Baja el replanteo como está GUARDADO: lo que no se guardó todavía no va. -->
+        <template v-if="editando && ctx?.version">
+          <button class="btn-bajar btn-pdf" :disabled="!!bajando" title="El replanteo guardado, en PDF" @click="bajar('pdf')">
+            {{ bajando === "pdf" ? "Armando…" : "⬇ PDF" }}
+          </button>
+          <button class="btn-bajar btn-excel" :disabled="!!bajando" title="El replanteo guardado, en Excel" @click="bajar('excel')">
+            {{ bajando === "excel" ? "Armando…" : "⬇ Excel" }}
+          </button>
+        </template>
+        <button class="btn-sec" @click="volver">← Volver a la planificación</button>
+      </div>
     </header>
 
     <div v-if="cargando" class="estado">Cargando…</div>
@@ -223,6 +234,7 @@
 <script>
 import api from "../config/axios.Config.js";
 import { useToast } from "vue-toastification";
+import { armarPlan, descargarPlanExcel, descargarPlanPdf } from "../utils/planDeTrabajos.js";
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const r2 = (n) => Math.round(Number(n || 0) * 100) / 100;
@@ -260,6 +272,7 @@ export default {
       soloConSaldo: true,
       guardando: false,
       errorGuardar: "",
+      bajando: null,
     };
   },
 
@@ -571,6 +584,25 @@ export default {
       this.$router.push({ name: "ProyeccionObra", params: { obraId: this.obraId } });
     },
 
+    async bajar(formato) {
+      const v = this.ctx?.version;
+      if (!v) return;
+      this.bajando = formato;
+      try {
+        const plan = armarPlan({
+          obra: this.ctx.obra?.nombre, version: v.version, motivo: v.motivo,
+          fecha_corte: v.fecha_corte, items: this.ctx.items, meses: v.meses,
+        });
+        if (formato === "excel") await descargarPlanExcel(plan);
+        else await descargarPlanPdf(plan);
+      } catch (e) {
+        console.error("Error armando el replanteo:", e);
+        this.toast.error(`No se pudo armar el ${formato === "excel" ? "Excel" : "PDF"}.`);
+      } finally {
+        this.bajando = null;
+      }
+    },
+
     num(n) { return Number(n || 0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
     pct(n) { return `${this.num(n)}%`; },
     monto(n) { return Number(n || 0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
@@ -679,5 +711,11 @@ export default {
 .btn-borrar { background: transparent; color: #fca5a5; border: 1px solid #7f1d1d; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 700; }
 .btn-borrar:hover:not(:disabled) { background: #3b1219; }
 .btn-sec { background: transparent; border: 1px solid #334155; color: #cbd5e1; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+.cabecera-botones { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn-bajar { border: none; color: #fff; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 700; }
+.btn-bajar:hover:not(:disabled) { filter: brightness(1.12); }
+.btn-bajar:disabled { opacity: 0.55; cursor: wait; }
+.btn-pdf { background: #3b82f6; }
+.btn-excel { background: #15803d; }
 .btn-sec:hover { border-color: #94a3b8; }
 </style>
